@@ -1,0 +1,26 @@
+# Hoja de ruta
+
+## Versi贸n 0.1 - Prototipo
+- [x] Proyecto Godot 4
+- [x] Escena de prueba 3D
+- [x] Personaje con movimiento b谩sico
+- [x] C谩mara en tercera persona
+- [x] Controles t谩ctiles iniciales
+- [ ] Prueba en el editor Android y correcciones
+
+## Versi贸n 0.2 - Combate
+- [ ] C谩mara t谩ctil
+- [ ] Sistema de apuntado
+- [ ] Disparo y recarga
+- [ ] Vida y da帽o
+
+## Versi贸n 0.3 - Mundo
+- [ ] Mapa de prueba
+- [ ] Enemigos con IA
+- [ ] Bot铆n y munici贸n
+- [ ] Zona segura
+
+## Versi贸n 1.0 - Android
+- [ ] Interfaz y ajustes gr谩ficos
+- [ ] Optimizaci贸n de rendimiento
+- [ ] Exportaci贸n e instalaci贸n APK
