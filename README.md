@@ -1,25 +1,18 @@
 # Battle Zone 3D
 
-Proyecto inicial de un juego Battle Royale 3D para Android, creado con Godot 4.
+Prototipo original de supervivencia 3D para navegador móvil y escritorio. Usa HTML, CSS, JavaScript y Three.js.
 
-## Estado
-**Prototipo inicial:** escenario de prueba, jugador 3D, cámara en tercera persona y controles básicos.
+## Publicar con GitHub Pages
+1. Sube todos los archivos y carpetas conservando esta estructura.
+2. En el repositorio abre **Configuración**.
+3. En el menú entra en **Páginas**.
+4. En **Compilar e implementar**, selecciona **Implementar desde una rama**.
+5. Selecciona la rama principal (`main` o `principal`) y la carpeta **/(raíz)**.
+6. Pulsa **Guardar** y espera a que aparezca el enlace.
 
-## Abrir el proyecto
-1. Descarga o clona este repositorio.
-2. Abre Godot 4.
-3. Importa la carpeta que contiene `project.godot`.
-4. Ejecuta `scenes/main.tscn`.
+## Controles
+Móvil: joystick izquierdo para moverse; arrastra el lado derecho para girar; botones para disparar, saltar y recargar.
+PC: WASD/flechas, Espacio para saltar, R para recargar y botón Disparar.
 
-## Controles actuales
-- PC: WASD para moverse; el personaje mira hacia la dirección de movimiento.
-- Android: controles táctiles básicos en pantalla (joystick y botón de salto).
-
-## Próximas etapas
-- Cámara táctil giratoria.
-- Armas, disparos y munición.
-- Enemigos con IA.
-- Mapa de supervivencia y zona segura.
-- Interfaz, optimización y exportación Android.
-
-Este proyecto es original y utiliza recursos geométricos provisionales. No incluye recursos ni marcas de Free Fire.
+## Limitaciones actuales
+Prototipo de un jugador. No incluye multijugador ni APK nativo. Three.js se descarga desde jsDelivr, por lo que se necesita internet.
