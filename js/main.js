@@ -12,7 +12,7 @@ scene.add(new THREE.HemisphereLight(0xd9ecff,0x45543b,1.7));const sun=new THREE.
 const world=makeWorld(scene),player=new Player(scene),controls=new Controls(player),ray=new THREE.Raycaster();ray.far=90;
 const fx=createEffects(scene,player);
 // Características de combate por arma: [rifle, escopeta, pistola]. auto = disparo continuo al mantener pulsado.
-[{max:30,auto:true,range:90,falloff:[40,90]},{max:6,auto:false,range:34,falloff:[6,26]},{max:12,auto:false,range:65,falloff:[25,65]}].forEach((x,i)=>Object.assign(player.weapons[i],x));
+[{max:30,auto:true,range:90,falloff:[60,140]},{max:6,auto:false,range:34,falloff:[6,26]},{max:12,auto:false,range:65,falloff:[30,90]}].forEach((x,i)=>Object.assign(player.weapons[i],x));
 let active=false,paused=false,health=100,armor=25,elapsed=0,gameClock=0,reloadUntil=0,lastDamage=0,fireHeld=false,fireInterval=0;
 const hud=$('#hud'),start=$('#start-screen'),pause=$('#pause-screen'),end=$('#end-screen');
 const setMsg=t=>{$('#status-message').textContent=t};
@@ -25,19 +25,24 @@ function completeReload(){const w=player.weapon,max=[30,6,12][player.weaponIndex
 function switchWeapon(){if(!active||paused)return;const w=player.switchWeapon();reloadUntil=0;fx.setWeaponLook(player.weaponIndex);updateHud();setMsg('Arma equipada: '+w.label)}
 
 // ---- Disparo: un rayo por perdigón, bloqueado por el primer obstáculo o enemigo que toque ----
-const CENTER=new THREE.Vector2(0,0),muzzlePos=new THREE.Vector3(),endPoint=new THREE.Vector3();
-const enemyMeshes=()=>world.enemies.filter(e=>e.userData.alive).flatMap(e=>e.children);
+// El rayo sale en horizontal desde el pecho del jugador hacia donde mira (player.yaw), no desde la cámara:
+// la cámara está arriba y detrás, y su rayo central baja ~16° y se hundía en el suelo a pocos metros.
+const muzzlePos=new THREE.Vector3(),endPoint=new THREE.Vector3(),aimOrigin=new THREE.Vector3(),aimDir=new THREE.Vector3();
+const enemyMeshes=()=>world.enemies.filter(e=>e.userData.alive&&e.visible).flatMap(e=>e.children);
 function shoot(){
  if(!active||paused||reloadUntil>gameClock)return;
  const w=player.weapon;
  if(gameClock-player.lastShot<w.rate)return;
  if(w.mag<=0){if(w.reserve>0)reload();else setMsg('Sin balas ni reserva: busca munición');return}
  player.lastShot=gameClock;w.mag--;updateHud();
- camera.updateMatrixWorld();player.group.updateMatrixWorld(true);
+ player.group.updateMatrixWorld(true);
+ world.enemies.forEach(e=>{if(e.userData.alive)e.updateMatrixWorld(true)});
+ aimOrigin.set(player.position.x,player.position.y+1.2,player.position.z);
+ aimDir.set(-Math.sin(player.yaw),0,-Math.cos(player.yaw));
  const wi=player.weaponIndex;fx.muzzle(wi);player.muzzle.getWorldPosition(muzzlePos);
  let hitAny=false,killed=false,headshot=false;
  for(let p=0;p<w.pellets;p++){
-  ray.setFromCamera(CENTER,camera);ray.far=w.range;
+  ray.set(aimOrigin,aimDir);ray.near=0;ray.far=w.range;
   if(w.spread){const d=ray.ray.direction;d.x+=(Math.random()-.5)*2*w.spread;d.y+=(Math.random()-.5)*2*w.spread;d.z+=(Math.random()-.5)*2*w.spread;d.normalize()}
   const eh=ray.intersectObjects(enemyMeshes(),false)[0],sh=ray.intersectObjects(world.solids,false)[0];
   let kind=null;
