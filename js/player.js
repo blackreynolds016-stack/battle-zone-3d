@@ -14,7 +14,7 @@ export const SLOTS=[['scope','MIRA'],['mag','CARGADOR'],['grip','EMPUÑADURA'],[
 // ---------- Personajes jugables ----------
 // speed: velocidad · armor: escudo inicial · reloadMul: multiplicador del tiempo de recarga · dmgTaken: multiplicador del daño recibido
 export const CHARACTERS=[
- {id:'zane',name:'ZANE',role:'SOLDADO',desc:'Equilibrado en todo',speed:5.4,armor:25,reloadMul:1,dmgTaken:1,pack:1,extras:['scarf','goggles','hairS'],colors:{uniform:0x4d5b48,dark:0x242c2a,skin:0xb98563,boot:0x171d1a,accent:0xc7f36b,hair:0x3a2a1f}},
+ {id:'zane',name:'ZANE',role:'SOLDADO',desc:'Equilibrado en todo',speed:5.4,armor:25,reloadMul:1,dmgTaken:1,pack:1,extras:['hood','pockets','knees','hairS'],colors:{uniform:0x4d5b48,dark:0x242c2a,skin:0xb98563,boot:0x3a2b20,accent:0xc7f36b,hair:0x3a2a1f}},
  {id:'lyra',name:'LYRA',role:'EXPLORADORA',desc:'Rápida y recarga veloz, sin escudo inicial',speed:6.2,armor:0,reloadMul:.75,dmgTaken:1,pack:.8,extras:['band','hairL','tail'],colors:{uniform:0x8c3a36,dark:0x2a1f22,skin:0xd9a07a,boot:0x1c1416,accent:0xff5a4c,hair:0x2b1a14}},
  {id:'bruno',name:'BRUNO',role:'TANQUE',desc:'Lento pero resistente: +escudo y -15 % de daño recibido',speed:4.8,armor:60,reloadMul:1.1,dmgTaken:.85,pack:1.25,extras:['helmet','vest','knees','shoulders'],colors:{uniform:0x4a5a73,dark:0x1f2630,skin:0x8a5a3c,boot:0x11151b,accent:0x59d8ff,hair:0x151515}}
 ];
@@ -82,7 +82,9 @@ export class Player{
    E.hairS=add(new THREE.SphereGeometry(.245,16,10,0,Math.PI*2,0,Math.PI*.55),hair,0,1.8,.01);
    E.hairL=add(new THREE.SphereGeometry(.25,16,10,0,Math.PI*2,0,Math.PI*.62),hair,0,1.79,.03);
    E.tail=add(new THREE.CapsuleGeometry(.065,.42,4,8),hair,0,1.62,.3);E.tail.rotation.x=-.35;
-   E.knees=add(new THREE.BoxGeometry(.5,.16,.2),accent,0,.46,-.12);
+   E.hood=add(new THREE.SphereGeometry(.2,12,8),uniform,0,1.58,.2);E.hood.scale.set(1.15,.8,.8);
+   E.pockets=add(new THREE.BoxGeometry(.12,.2,.3),dark,-.3,.62,-.04);E.pockets2=add(new THREE.BoxGeometry(.12,.2,.3),dark,.3,.62,-.04);
+   E.knees=add(new THREE.BoxGeometry(.5,.16,.2),dark,0,.46,-.12);
    E.shoulders=add(new THREE.SphereGeometry(.16,10,8),accent,-.43,1.52,0);E.shoulders2=add(new THREE.SphereGeometry(.16,10,8),accent,.43,1.52,0);
    // el arma es un grupo fijo (this.gun) cuyo contenido cambia según el arma y sus accesorios (buildGun); this.muzzle es la boca del cañón
    const gun=new THREE.Group();gun.position.set(.27,1.12,-.37);this.group.add(gun);this.gun=gun;this.muzzle=new THREE.Object3D();this.muzzle.position.set(0,.01,-1.1);gun.add(this.muzzle);this.custom={};this.setCharacter(this.charIndex);this.buildGun()}
@@ -90,7 +92,7 @@ export class Player{
   // Aplica colores, detalles y habilidades del personaje elegido (ver CHARACTERS)
   setCharacter(i){const c=CHARACTERS[i]||CHARACTERS[0];this.charIndex=CHARACTERS.indexOf(c);const m=this.mats;for(const k of Object.keys(c.colors))m[k].color.setHex(c.colors[k]);
    const custom=this.custom[c.id];
-   for(const [k,o] of Object.entries(this.extras)){const on=c.extras.includes(k)||(k==='shoulders2'&&c.extras.includes('shoulders'));o.visible=!custom&&on}
+   for(const [k,o] of Object.entries(this.extras)){o.visible=!custom&&c.extras.includes(k.replace(/2$/,''))}
    this.bodyParts.forEach(o=>{if(!Object.values(this.extras).includes(o))o.visible=!custom});
    for(const [id,o] of Object.entries(this.custom))o.visible=(id===c.id);
    this.pack.scale.set(c.pack,c.pack,c.pack);this.speed=c.speed}

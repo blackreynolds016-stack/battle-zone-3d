@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import {ACCESSORIES} from './player.js';
-const mat=(color,roughness=.9,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
+export const mat=(color,roughness=.9,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
 // ---- Texturas procedurales (se dibujan en un canvas al cargar; sin DOM se usa el color liso de siempre) ----
 const hex=h=>'#'+h.toString(16).padStart(6,'0');
-function texMat(color,kind,rx=1,ry=1){
+export function texMat(color,kind,rx=1,ry=1){
  if(typeof document==='undefined'||!document.createElement)return mat(color);
  const size=kind==='grass'?256:128,c=document.createElement('canvas');c.width=c.height=size;const x=c.getContext&&c.getContext('2d');if(!x)return mat(color);
  const r=Math.random,sh=(a)=>{const k=1+a;const n=h=>Math.max(0,Math.min(255,Math.round(h*k)));const R=(color>>16)&255,G=(color>>8)&255,B=color&255;return `rgb(${n(R)},${n(G)},${n(B)})`};
