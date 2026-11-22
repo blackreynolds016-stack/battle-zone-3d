@@ -19,20 +19,24 @@
   <div id="game"></div>
   <div id="loading" class="loading"><div class="loader"></div><b class="load-logo">EGO <i>ZNE</i></b><b>PREPARANDO LA ZONA...</b></div>
 
-  <section id="start-screen" class="screen">
-    <div class="panel hero-panel">
-      <p class="eyebrow">BATTLE ROYALE · TEMPORADA 02</p>
-      <h1>EGO <span>ZNE</span></h1>
-      <p class="subtitle">SOBREVIVE. EQUÍPATE. DOMINA LA ZONA.</p>
-      <p class="pick-title">ELIGE TU PERSONAJE</p>
-      <div id="char-list" class="char-list"></div>
-      <p id="char-desc" class="char-desc"></p>
-      <div class="mode-row"><button id="mode-ffa" class="mode on">TODOS CONTRA TODOS</button><button id="mode-teams" class="mode">POR EQUIPOS</button></div>
-      <div class="feature-row"><span>⚔ 8 ENEMIGOS</span><span>◉ BOTÍN POR TODO EL MAPA</span><span>◷ ZONA DINÁMICA</span></div>
-      <button id="start-button" class="primary">ENTRAR EN COMBATE</button>
-      <small>Instálalo como app: menú del navegador → «Añadir a pantalla de inicio»</small>
+  <section id="start-screen" class="screen lobby">
+    <div class="lb-profile"><div class="lb-avatar" id="lb-avatar"><svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg></div><div class="lb-info"><div class="lb-row"><b id="lb-name">JUGADOR</b><span id="lb-level">Nvl. 1</span></div><div class="lb-xp"><i id="lb-xpbar"></i></div></div></div>
+    <button id="btn-settings" class="lb-gear" aria-label="Configuración"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 14a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Configuración</span></button>
+    <div class="lb-brand">EGO <i>ZNE</i></div>
+    <div class="lb-left">
+      <button id="btn-chars" class="lb-side"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg><span>Personajes</span></button>
+      <button id="btn-guns" class="lb-side"><i class="ico lb-ico" id="lb-gunico"></i><span>Armas</span></button>
     </div>
+    <div class="lb-bottom"><button id="btn-mode" class="lb-mode"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/></svg><span id="mode-label">MODO CLÁSICO</span></button><button id="start-button" class="lb-play">INICIAR</button></div>
   </section>
+
+  <section id="chars-screen" class="screen side hidden"><div class="panel"><p class="eyebrow">PERSONAJES</p><div id="char-list" class="char-list"></div><p id="char-desc" class="char-desc"></p><button id="chars-close" class="primary">LISTO</button></div></section>
+  <section id="guns-screen" class="screen hidden"><div class="panel wide"><p class="eyebrow">ARMAS Y ACCESORIOS</p><div id="guns-list" class="guns-list"></div><p class="char-desc">Las armas nuevas y los accesorios se encuentran en cajas repartidas por el mapa.</p><button id="guns-close" class="primary">CERRAR</button></div></section>
+  <section id="settings-screen" class="screen hidden"><div class="panel"><p class="eyebrow">CONFIGURACIÓN</p>
+    <label class="set-row">NOMBRE<input id="set-name" maxlength="12" autocomplete="off"></label>
+    <label class="set-row">CALIDAD GRÁFICA<select id="set-quality"><option value="low">Baja (más fluido)</option><option value="mid">Media</option><option value="high">Alta</option></select></label>
+    <label class="set-row">SENSIBILIDAD DE CÁMARA <b id="set-sens-val">1.0</b><input id="set-sens" type="range" min="50" max="200" value="100"></label>
+    <button id="settings-close" class="primary">GUARDAR</button></div></section>
 
   <div id="hud" class="hidden">
     <div id="scope" class="hidden"><i class="sh"></i><i class="sv"></i><b class="sdot"></b></div>
@@ -47,7 +51,7 @@
     <div id="zone-warning" class="zone-warning hidden">⚠ FUERA DE LA ZONA SEGURA</div>
     <div id="crosshair"><i></i><i></i><i></i><i></i></div>
     <div id="status-message">Busca equipo y sobrevive</div>
-    <div class="bottom-hud"><div class="zone-info">ZONA SEGURA <b id="zone-time">01:30</b></div><div class="weapon-info"><b id="weapon-label">RIFLE DE ASALTO</b><span id="ammo-label">30 / 120</span></div></div>
+    <div class="bottom-hud"><div class="zone-info">ZONA SEGURA <b id="zone-time">01:30</b></div><div class="weapon-info"><i class="ico sm" id="weapon-ico"></i><b id="weapon-label">RIFLE DE ASALTO</b><span id="ammo-label">30 / 120</span></div></div>
     <div id="joy" aria-label="Joystick para moverse"><div id="knob"></div></div>
     <div class="look-hint">ARRASTRA PARA MIRAR</div>
     <button id="fire" class="action fire"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6.5"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg><span>DISPARAR</span></button>
