@@ -1,0 +1,70 @@
+name: Construir APK (EGO ZNE)
+
+# Se ejecuta a mano: pestaña Actions > "Construir APK (EGO ZNE)" > Run workflow.
+# Al terminar, descarga el APK desde "Artifacts" al final de la página de la ejecución.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Preparar carpeta web (Three.js local para jugar sin internet)
+        run: |
+          mkdir -p www/vendor
+          cp -r index.html css js icons manifest.webmanifest www/
+          mkdir three-tmp && cd three-tmp && npm init -y >/dev/null && npm install three@0.170.0 && cd ..
+          cp three-tmp/node_modules/three/build/three.module.js www/vendor/three.module.js
+          sed -i 's#https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js#./vendor/three.module.js#' www/index.html
+          grep -n "vendor/three.module.js" www/index.html
+
+      - name: Instalar Capacitor
+        run: |
+          npm init -y >/dev/null
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+
+      - name: Crear proyecto Android
+        run: |
+          npx cap init "EGO ZNE" com.egozne.game --web-dir www
+          npx cap add android
+          npx cap sync android
+
+      - name: Icono y orientación horizontal
+        run: |
+          RES=android/app/src/main/res
+          rm -rf $RES/mipmap-anydpi-v26
+          for d in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            n=${d%%:*}; z=${d##*:}
+            mkdir -p $RES/mipmap-$n
+            for f in ic_launcher ic_launcher_round ic_launcher_foreground; do
+              convert icons/icon-512.png -resize ${z}x${z} $RES/mipmap-$n/$f.png
+            done
+          done
+          sed -i 's#<activity#<activity android:screenOrientation="sensorLandscape"#' android/app/src/main/AndroidManifest.xml
+          grep -n "screenOrientation" android/app/src/main/AndroidManifest.xml
+
+      - name: Compilar APK (debug)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EGO-ZNE-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
