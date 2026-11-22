@@ -1,8 +1,22 @@
 import * as THREE from 'three';
+import {ACCESSORIES} from './player.js';
 const mat=(color,roughness=.9,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
+// ---- Texturas procedurales (se dibujan en un canvas al cargar; sin DOM se usa el color liso de siempre) ----
+const hex=h=>'#'+h.toString(16).padStart(6,'0');
+function texMat(color,kind,rx=1,ry=1){
+ if(typeof document==='undefined'||!document.createElement)return mat(color);
+ const size=kind==='grass'?256:128,c=document.createElement('canvas');c.width=c.height=size;const x=c.getContext&&c.getContext('2d');if(!x)return mat(color);
+ const r=Math.random,sh=(a)=>{const k=1+a;const n=h=>Math.max(0,Math.min(255,Math.round(h*k)));const R=(color>>16)&255,G=(color>>8)&255,B=color&255;return `rgb(${n(R)},${n(G)},${n(B)})`};
+ x.fillStyle=hex(color);x.fillRect(0,0,size,size);
+ if(kind==='grass'){for(let i=0;i<900;i++){x.fillStyle=sh((r()-.5)*.38);x.fillRect(r()*size,r()*size,1+r()*2,2+r()*4)}for(let i=0;i<14;i++){x.fillStyle=sh(.18);x.beginPath();x.arc(r()*size,r()*size,1+r()*2,0,6.3);x.fill()}}
+ else if(kind==='asphalt'){for(let i=0;i<1400;i++){x.fillStyle=sh((r()-.5)*.3);x.fillRect(r()*size,r()*size,1+r()*2,1+r()*2)}x.fillStyle='rgba(235,230,200,.85)';x.fillRect(size/2-3,0,6,size*.5)}
+ else if(kind==='wall'){for(let i=0;i<700;i++){x.fillStyle=sh((r()-.5)*.2);x.fillRect(r()*size,r()*size,1+r()*3,1+r()*3)}x.strokeStyle=sh(-.28);x.lineWidth=1.5;for(let y=0;y<=size;y+=32){x.beginPath();x.moveTo(0,y);x.lineTo(size,y);x.stroke()}for(let row=0;row<4;row++){for(let xx=(row%2)*32;xx<=size;xx+=64){x.beginPath();x.moveTo(xx,row*32);x.lineTo(xx,row*32+32);x.stroke()}}}
+ else{for(let i=0;i<700;i++){x.fillStyle=sh((r()-.5)*.35);x.fillRect(r()*size,r()*size,2+r()*4,2+r()*4)}}
+ const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(rx,ry);t.colorSpace=THREE.SRGBColorSpace;
+ return new THREE.MeshStandardMaterial({map:t,roughness:.92,metalness:0})}
 function box(scene,x,y,z,sx,sy,sz,material){const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),material);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;scene.add(m);return m}
 function makeTree(scene,x,z,scale=1){const g=new THREE.Group();const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.18*scale,.28*scale,2.2*scale,8),mat(0x59432e));trunk.position.y=1.1*scale;trunk.castShadow=true;g.add(trunk);for(let i=0;i<3;i++){const crown=new THREE.Mesh(new THREE.ConeGeometry((1.35-i*.2)*scale,2.3*scale,8),mat(i===1?0x315a39:0x3d6b40));crown.position.y=(2.1+i*.72)*scale;crown.castShadow=true;g.add(crown)}g.position.set(x,0,z);scene.add(g);return g}
-function makeBuilding(scene,x,z,w,d,color){const g=new THREE.Group();const wall=mat(color),roof=mat(0x333b3a,.7),trim=mat(0x242a29);const body=new THREE.Mesh(new THREE.BoxGeometry(w,3.2,d),wall);body.position.y=1.6;body.castShadow=true;body.receiveShadow=true;g.add(body);const top=new THREE.Mesh(new THREE.BoxGeometry(w+.25,.25,d+.25),roof);top.position.y=3.25;top.castShadow=true;g.add(top);for(let s of [-1,1]){const win=new THREE.Mesh(new THREE.BoxGeometry(.9,.9,.08),mat(0x304d56,.25,.3));win.position.set(s*w*.27,2,-d/2-.045);g.add(win)}const door=new THREE.Mesh(new THREE.BoxGeometry(.85,1.9,.1),trim);door.position.set(0,.95,-d/2-.06);g.add(door);g.position.set(x,0,z);scene.add(g);return g}
+function makeBuilding(scene,x,z,w,d,color){const g=new THREE.Group();const wall=texMat(color,'wall',Math.max(1,Math.round(w/3)),1),roof=mat(0x333b3a,.7),trim=mat(0x242a29);const body=new THREE.Mesh(new THREE.BoxGeometry(w,3.2,d),wall);body.position.y=1.6;body.castShadow=true;body.receiveShadow=true;g.add(body);const top=new THREE.Mesh(new THREE.BoxGeometry(w+.25,.25,d+.25),roof);top.position.y=3.25;top.castShadow=true;g.add(top);for(let s of [-1,1]){const win=new THREE.Mesh(new THREE.BoxGeometry(.9,.9,.08),mat(0x304d56,.25,.3));win.position.set(s*w*.27,2,-d/2-.045);g.add(win)}const door=new THREE.Mesh(new THREE.BoxGeometry(.85,1.9,.1),trim);door.position.set(0,.95,-d/2-.06);g.add(door);g.position.set(x,0,z);scene.add(g);return g}
 function soldier(scene,x,z,index){const g=new THREE.Group();const uniform=mat(index%2?0x7b493e:0x4b5848),skin=mat(0x9c7056),dark=mat(0x252b29);const torso=new THREE.Mesh(new THREE.CapsuleGeometry(.32,.68,4,8),uniform);torso.position.y=1;torso.castShadow=true;g.add(torso);const head=new THREE.Mesh(new THREE.SphereGeometry(.21,12,10),skin);head.position.y=1.72;head.castShadow=true;g.add(head);const pack=new THREE.Mesh(new THREE.BoxGeometry(.4,.5,.22),dark);pack.position.set(0,1,-.3);g.add(pack);for(const s of [-1,1]){const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.1,.5,3,7),dark);leg.position.set(s*.18,.38,0);g.add(leg);const arm=new THREE.Mesh(new THREE.CapsuleGeometry(.09,.42,3,7),uniform);arm.position.set(s*.37,1.05,-.05);g.add(arm)}g.position.set(x,0,z);
  // team: 0 = verdes (índice par), 1 = rojos (índice impar). target: null | 'player' | otro enemigo.
  g.userData={alive:true,hp:100,cooldown:1+Math.random()*2,attack:0,index,team:index%2,
@@ -15,15 +29,41 @@ function soldier(scene,x,z,index){const g=new THREE.Group();const uniform=mat(in
 export function makeWorld(scene){
  const solids=[],blockers=[],covers=[];
  const addSolid=(mesh,kind,blocks)=>{mesh.userData.kind=kind;solids.push(mesh);if(blocks)blockers.push(mesh)};
- const ground=new THREE.Mesh(new THREE.PlaneGeometry(100,100,1,1),mat(0x526b43));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);addSolid(ground,'dirt',false);
- const patch=new THREE.Mesh(new THREE.PlaneGeometry(80,80),mat(0x667b4d));patch.rotation.x=-Math.PI/2;patch.position.y=.012;scene.add(patch);
- const road=new THREE.Mesh(new THREE.PlaneGeometry(8,100),mat(0x555b56));road.rotation.x=-Math.PI/2;road.position.y=.025;scene.add(road);
+ const ground=new THREE.Mesh(new THREE.PlaneGeometry(100,100,1,1),texMat(0x526b43,'grass',24,24));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);addSolid(ground,'dirt',false);
+ const patch=new THREE.Mesh(new THREE.PlaneGeometry(80,80),texMat(0x667b4d,'grass',20,20));patch.rotation.x=-Math.PI/2;patch.position.y=.012;scene.add(patch);
+ const road=new THREE.Mesh(new THREE.PlaneGeometry(8,100),texMat(0x555b56,'asphalt',1,12));road.rotation.x=-Math.PI/2;road.position.y=.025;scene.add(road);
  for(let i=0;i<90;i++){let x=(Math.random()-.5)*92,z=(Math.random()-.5)*92;if(Math.abs(x)<6)continue;const t=makeTree(scene,x,z,.75+Math.random()*.55);t.children.forEach((c,k)=>addSolid(c,'wood',k===0));covers.push({x,z,hw:.4,hd:.4})}
- for(let i=0;i<35;i++){const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(.3+Math.random()*.65,0),mat(0x686d68));rock.position.set((Math.random()-.5)*88,.25,(Math.random()-.5)*88);rock.scale.y=.55;rock.castShadow=true;scene.add(rock);addSolid(rock,'stone',true);const rr=(rock.geometry.parameters.radius||.5)*.8;covers.push({x:rock.position.x,z:rock.position.z,hw:rr,hd:rr})}
+ const rockMat=texMat(0x686d68,'rock',1,1);for(let i=0;i<35;i++){const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(.3+Math.random()*.65,0),rockMat);rock.position.set((Math.random()-.5)*88,.25,(Math.random()-.5)*88);rock.scale.y=.55;rock.castShadow=true;scene.add(rock);addSolid(rock,'stone',true);const rr=(rock.geometry.parameters.radius||.5)*.8;covers.push({x:rock.position.x,z:rock.position.z,hw:rr,hd:rr})}
  [[-13,-12,8,7,0x9b927e],[13,-18,9,7,0x8d9b98],[-19,14,7,8,0x8d806d],[19,13,8,7,0x9b927e]].forEach(b=>{const g=makeBuilding(scene,b[0],b[1],b[2],b[3],b[4]);addSolid(g.children[0],'stone',true);addSolid(g.children[1],'stone',true);covers.push({x:b[0],z:b[1],hw:b[2]/2,hd:b[3]/2})});
  const mountainMat=mat(0x66766d);for(let i=0;i<18;i++){const a=i/18*Math.PI*2,r=49+Math.random()*5,h=8+Math.random()*13;const m=new THREE.Mesh(new THREE.ConeGeometry(7+Math.random()*5,h,6),mountainMat);m.position.set(Math.cos(a)*r,h/2-1,Math.sin(a)*r);m.castShadow=true;scene.add(m)}
  const enemies=[];const spots=[[-9,-4],[10,-7],[-22,-20],[23,-3],[-25,25],[5,27],[28,25],[-3,-29]];spots.forEach((p,i)=>enemies.push(soldier(scene,p[0],p[1],i)));
- const loot=[];const lootDefs=[{type:'ammo',color:0xd5b54b},{type:'med',color:0x55cf85},{type:'armor',color:0x62bce9},{type:'ammo',color:0xd5b54b},{type:'med',color:0x55cf85},{type:'ammo',color:0xd5b54b}];const lootSpots=[[-5,7],[8,8],[-18,-2],[17,-22],[1,-17],[24,5]];lootDefs.forEach((d,i)=>{const g=new THREE.Group();const cube=new THREE.Mesh(new THREE.BoxGeometry(.65,.5,.65),new THREE.MeshStandardMaterial({color:d.color,metalness:.25,roughness:.45,emissive:d.color,emissiveIntensity:.12}));cube.position.y=.35;cube.castShadow=true;g.add(cube);const ring=new THREE.Mesh(new THREE.TorusGeometry(.48,.035,6,20),mat(d.color));ring.rotation.x=Math.PI/2;ring.position.y=.04;g.add(ring);g.position.set(lootSpots[i][0],0,lootSpots[i][1]);g.userData={type:d.type,active:true};scene.add(g);loot.push(g)});
+ const loot=[];
+ // Etiqueta de texto flotante sobre cada caja (se dibuja en un canvas; si no hay DOM, simplemente no se crea)
+ function makeLabel(text,color){if(typeof document==='undefined'||!document.createElement)return null;const c=document.createElement('canvas');c.width=256;c.height=64;const x=c.getContext&&c.getContext('2d');if(!x)return null;x.fillStyle='rgba(0,0,0,.55)';x.fillRect(0,0,256,64);x.fillStyle='#'+color.toString(16).padStart(6,'0');x.font='bold 26px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(text,128,34);const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));sp.scale.set(1.9,.48,1);sp.position.y=1.25;return sp}
+ // Aspecto de cada tipo de botín
+ const LOOK={ammo:[0xd5b54b,'MUNICIÓN'],med:[0x55cf85,'BOTIQUÍN'],armor:[0x62bce9,'ESCUDO'],weapon:[0xb07cff,'ARMA']};
+ // Una caja de botín reutilizable: configure() cambia su tipo, color y etiqueta
+ function addLoot(x,z,type,data){const g=new THREE.Group();const cm=new THREE.MeshStandardMaterial({color:0xffffff,metalness:.25,roughness:.45,emissiveIntensity:.12});const cube=new THREE.Mesh(new THREE.BoxGeometry(.65,.5,.65),cm);cube.position.y=.35;cube.castShadow=true;g.add(cube);const rm=mat(0xffffff);const ring=new THREE.Mesh(new THREE.TorusGeometry(.48,.035,6,20),rm);ring.rotation.x=Math.PI/2;ring.position.y=.04;g.add(ring);g.position.set(x,0,z);g.userData={};
+  g.userData.configure=(t,d={})=>{const lk=t==='acc'?[ACCESSORIES[d.acc].color,ACCESSORIES[d.acc].name]:t==='weapon'?[LOOK.weapon[0],d.label]:LOOK[t];const col=lk[0];g.userData.type=t;g.userData.active=true;g.userData.weapon=d.weapon;g.userData.acc=d.acc;cm.color.setHex(col);cm.emissive.setHex(col);rm.color.setHex(col);
+   const old=g.userData.label;if(old){g.remove(old);if(old.material&&old.material.map&&old.material.map.dispose)old.material.map.dispose()}g.userData.label=null;const lb=makeLabel(lk[1],col);if(lb){g.add(lb);g.userData.label=lb}};
+  g.userData.configure(type,data||{});scene.add(g);loot.push(g);return g}
+ // Suministros fijos originales
+ const lootDefs=['ammo','med','armor','ammo','med','ammo'],lootSpots=[[-5,7],[8,8],[-18,-2],[17,-22],[1,-17],[24,5]];
+ lootDefs.forEach((t,i)=>addLoot(lootSpots[i][0],lootSpots[i][1],t));
+ // Armas nuevas (índice en player.weapons): subfusil, francotirador, revólver
+ [[-13,-18.5,3,'SUBFUSIL'],[31,-27,4,'SNIPER'],[-19,7,5,'REVÓLVER']].forEach(d=>addLoot(d[0],d[1],'weapon',{weapon:d[2],label:d[3]}));
+ // Cajas de accesorios fijas: el tipo se sortea en cada partida (reparto equilibrado de los 5 accesorios)
+ const accKeys=Object.keys(ACCESSORIES),accSpots=[[-4,-6],[6,-12],[15,0],[-12,3],[-5,-23],[24,-8],[-26,-10],[9,22],[-30,20],[2,-30]];
+ const accLoot=accSpots.map(p=>addLoot(p[0],p[1],'acc',{acc:accKeys[0]}));
+ // Botín disperso por todo el mapa: 32 cajas que cambian de lugar y de contenido en cada partida
+ const scatter=[];for(let i=0;i<32;i++)scatter.push(addLoot(0,0,'ammo'));
+ const lootFree=(x,z)=>{for(const c of covers){if(Math.abs(x-c.x)<c.hw+1.3&&Math.abs(z-c.z)<c.hd+1.3)return false}return true};
+ function rollLoot(){
+  const pool=accSpots.map((_,i)=>accKeys[i%accKeys.length]);for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}accLoot.forEach((g,i)=>g.userData.configure('acc',{acc:pool[i]}));
+  const taken=loot.filter(g=>!scatter.includes(g)).map(g=>[g.position.x,g.position.z]);
+  scatter.forEach(g=>{let x=0,z=0,tries=0;do{const a=Math.random()*Math.PI*2,r=4+Math.sqrt(Math.random())*33;x=Math.cos(a)*r;z=Math.sin(a)*r;tries++}while(tries<60&&(!lootFree(x,z)||taken.some(p=>Math.hypot(p[0]-x,p[1]-z)<3.5)));taken.push([x,z]);g.position.set(x,0,z);
+   const r=Math.random();if(r<.34)g.userData.configure('ammo');else if(r<.56)g.userData.configure('med');else if(r<.72)g.userData.configure('armor');else g.userData.configure('acc',{acc:accKeys[Math.floor(Math.random()*accKeys.length)]})})}
+ rollLoot();
  const zone=new THREE.Mesh(new THREE.RingGeometry(0,1,96),new THREE.MeshBasicMaterial({color:0x55d9ff,side:THREE.DoubleSide,transparent:true,opacity:.18,depthWrite:false}));zone.rotation.x=-Math.PI/2;zone.position.y=.09;scene.add(zone);const edge=new THREE.Mesh(new THREE.TorusGeometry(1,.075,8,128),new THREE.MeshBasicMaterial({color:0x69ddff,transparent:true,opacity:.85}));edge.rotation.x=Math.PI/2;edge.position.y=.12;scene.add(edge);
 
  // ======== IA de enemigos ========
@@ -57,7 +97,7 @@ export function makeWorld(scene){
 
  W={enemies,loot,zone,edge,solids,blockers,ground,teams:false,zoneRadius:43,zoneCenter:new THREE.Vector2(0,0),phase:0,
   reset(){enemies.forEach(e=>{const u=e.userData;e.visible=true;e.rotation.set(0,0,0);e.position.set(spots[u.index][0],0,spots[u.index][1]);u.alive=true;u.hp=100;u.state='chase';u.stun=0;u.flash=0;u.alert=0;u.sees=false;u.dying=0;u.coverPt=null;u.coverT=0;u.coverCd=0;u.attack=0;u.cooldown=1+Math.random()*2;u.mats.forEach(m=>m.emissive.setHex(0));u.flashOn=false;
-   u.target=null;u.tgtT=Math.random()*.3;u.wp=null;u.wpT=0;u.repoT=3+Math.random()*5;u.wantMove=false;u.moveTime=0;u.stuckT=0;u.sx=e.position.x;u.sz=e.position.z;u.detour=0;u.detourN=0;u.detourAge=99;u.last.set(e.position.x,0,e.position.z)});loot.forEach(l=>{l.visible=true;l.userData.active=true});this.zoneRadius=43;this.phase=0;this.zone.scale.setScalar(43);this.edge.scale.setScalar(43)},
+   u.target=null;u.tgtT=Math.random()*.3;u.wp=null;u.wpT=0;u.repoT=3+Math.random()*5;u.wantMove=false;u.moveTime=0;u.stuckT=0;u.sx=e.position.x;u.sz=e.position.z;u.detour=0;u.detourN=0;u.detourAge=99;u.last.set(e.position.x,0,e.position.z)});loot.forEach(l=>{l.visible=true;l.userData.active=true});rollLoot();this.zoneRadius=43;this.phase=0;this.zone.scale.setScalar(43);this.edge.scale.setScalar(43)},
   // Aplica daño a un enemigo. attacker: 'player' (por defecto) u otro enemigo. Devuelve true si muere.
   damageEnemy(e,amount,attacker){const u=e.userData;if(!u.alive)return false;u.hp-=amount;if(u.hp<=0){u.hp=0;u.alive=false;u.state='dead';u.dying=.9;u.sees=false;u.flash=0;u.target=null;u.mats.forEach(m=>m.emissive.setHex(0));return true}
    const byEnemy=attacker&&attacker!=='player',ap=byEnemy?attacker.position:playerPos;

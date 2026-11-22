@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {Player} from './player.js';
+import {Player,ACCESSORIES,SLOTS,CHARACTERS} from './player.js';
 import {Controls} from './controls.js';
 import {makeWorld} from './world.js';
 import {createEffects} from './effects.js';
@@ -13,8 +13,7 @@ const world=makeWorld(scene),player=new Player(scene),controls=new Controls(play
 const fx=createEffects(scene,player);
 // Modo de enemigos: por defecto todos contra todos. Abre el juego con "?equipos" al final del enlace para jugar verdes contra rojos.
 world.teams=typeof location!=='undefined'&&new URLSearchParams(location.search).has('equipos');
-// Características de combate por arma: [rifle, escopeta, pistola]. auto = disparo continuo al mantener pulsado.
-[{max:30,auto:true,range:90,falloff:[60,140],zoom:3},{max:6,auto:false,range:34,falloff:[6,26]},{max:12,auto:false,range:65,falloff:[30,90]}].forEach((x,i)=>Object.assign(player.weapons[i],x));
+// Las características de cada arma (cargador, daño, alcance, zoom, accesorios...) viven en player.js (player.weapons).
 let active=false,paused=false,health=100,armor=25,elapsed=0,gameClock=0,reloadUntil=0,lastDamage=0,fireHeld=false,fireInterval=0;
 const hud=$('#hud'),start=$('#start-screen'),pause=$('#pause-screen'),end=$('#end-screen');
 const setMsg=t=>{$('#status-message').textContent=t};
@@ -22,15 +21,28 @@ const setMsg=t=>{$('#status-message').textContent=t};
 const aimBtn=$('#aim'),scopeEl=$('#scope'),crossEl=$('#crosshair'),aimMove=new THREE.Vector2();
 let aiming=false,aimBlend=0,aimZoom=1,scopeShown=false;const BASE_FOV=camera.fov,EYE_H=1.62;
 player.lookScale=1;
-function syncAim(){const can=!!player.weapon.zoom;if(!can)aiming=false;if(aimBtn){aimBtn.classList.toggle('hidden',!can);aimBtn.classList.toggle('on',aiming);aimBtn.textContent=aiming?'SALIR MIRA':'APUNTAR'}}
+function syncAim(){const can=!!player.weapon.zoom;if(!can)aiming=false;if(aimBtn){aimBtn.classList.toggle('hidden',!can);aimBtn.classList.toggle('on',aiming);const al=$('#aim-label');if(al)al.textContent=aiming?'SALIR MIRA':'APUNTAR'}}
 function stopAim(){aiming=false;syncAim()}
 function toggleAim(){if(!active||paused)return;if(!player.weapon.zoom){setMsg('Esta arma no tiene mira telescópica');return}aiming=!aiming;if(aiming)aimZoom=player.weapon.zoom;syncAim();setMsg(aiming?'Mira telescópica activada':'Mira desactivada')}
-function updateHud(){const w=player.weapon;$('#health').textContent=Math.ceil(health);$('#healthbar').style.width=health+'%';$('#armor').textContent=Math.ceil(armor);$('#armorbar').style.width=armor+'%';$('#weapon').textContent=w.name;$('#weapon-label').textContent=w.label;$('#ammo').textContent=`${w.mag} / ${w.reserve}`;$('#ammo-label').textContent=`${w.mag} / ${w.reserve}`;$('#alive').textContent=world.enemies.filter(e=>e.userData.alive).length+1}
-function begin(){active=true;paused=false;health=100;armor=25;elapsed=0;gameClock=0;reloadUntil=0;fireHeld=false;player.reset();world.reset();fx.reset();fx.setWeaponLook(player.weaponIndex);aimBlend=0;player.group.visible=true;stopAim();start.classList.add('hidden');pause.classList.add('hidden');end.classList.add('hidden');hud.classList.remove('hidden');$('#zone-warning').classList.add('hidden');setMsg(world.teams?'Equipos: verdes contra rojos · busca suministros':'Todos contra todos · busca suministros');updateHud()}
+function updateHud(){const w=player.weapon;$('#health').textContent=Math.ceil(health);$('#healthbar').style.width=health+'%';$('#armor').textContent=Math.ceil(armor);$('#armorbar').style.width=armor+'%';$('#weapon').textContent=w.name;$('#weapon-label').textContent=w.label+(Object.values(w.att).filter(Boolean).length?' +'+Object.values(w.att).filter(Boolean).length:'');$('#ammo').textContent=`${w.mag} / ${w.reserve}`;$('#ammo-label').textContent=`${w.mag} / ${w.reserve}`;$('#alive').textContent=world.enemies.filter(e=>e.userData.alive).length+1}
+// ---- Selector de personaje (se recuerda la última elección) ----
+let charIndex=0;try{charIndex=Math.min(CHARACTERS.length-1,Math.max(0,parseInt(localStorage.getItem('egozne-char')||'0',10)||0))}catch(e){}
+const charList=$('#char-list'),charDesc=$('#char-desc');
+function renderChars(){if(!charList)return;charList.textContent='';CHARACTERS.forEach((c,i)=>{const b=document.createElement('button');b.className='char-card'+(i===charIndex?' on':'');b.style.setProperty('--c','#'+c.colors.accent.toString(16).padStart(6,'0'));const n=document.createElement('b');n.textContent=c.name;const r=document.createElement('span');r.textContent=c.role;b.appendChild(n);b.appendChild(r);b.addEventListener('click',()=>{charIndex=i;try{localStorage.setItem('egozne-char',String(i))}catch(e){}player.setCharacter(i);renderChars()});charList.appendChild(b)});const c=CHARACTERS[charIndex];if(charDesc)charDesc.textContent=c.desc+' · Velocidad '+c.speed+' · Escudo inicial '+c.armor}
+player.setCharacter(charIndex);renderChars();
+// ---- Minimapa: zona segura, jugador, botín y enemigos cercanos ----
+const mm=$('#minimap'),mmc=mm&&mm.getContext?mm.getContext('2d'):null,LOOT_COL={ammo:'#d5b54b',med:'#55cf85',armor:'#62bce9',weapon:'#b07cff',acc:'#ff9a3c'};let mmT=0;
+function drawMap(){if(!mmc)return;const S=mm.width,k=S/84,c=S/2;mmc.clearRect(0,0,S,S);mmc.fillStyle='rgba(10,18,22,.72)';mmc.fillRect(0,0,S,S);
+ mmc.strokeStyle='#67c8ff';mmc.lineWidth=2;mmc.beginPath();mmc.arc(c+world.zoneCenter.x*k,c+world.zoneCenter.y*k,Math.max(1,world.zoneRadius*k),0,6.283);mmc.stroke();
+ const px=player.position.x,pz=player.position.z;
+ for(const l of world.loot){if(!l.userData.active)continue;if(Math.hypot(l.position.x-px,l.position.z-pz)>24)continue;mmc.fillStyle=LOOT_COL[l.userData.type]||'#fff';mmc.fillRect(c+l.position.x*k-2,c+l.position.z*k-2,4,4)}
+ mmc.fillStyle='#ff4d4d';for(const e of world.enemies){if(!e.userData.alive)continue;if(Math.hypot(e.position.x-px,e.position.z-pz)>22)continue;mmc.beginPath();mmc.arc(c+e.position.x*k,c+e.position.z*k,3,0,6.283);mmc.fill()}
+ mmc.save();mmc.translate(c+px*k,c+pz*k);mmc.rotate(Math.atan2(-Math.cos(player.yaw),-Math.sin(player.yaw)));mmc.fillStyle='#c7f36b';mmc.beginPath();mmc.moveTo(7,0);mmc.lineTo(-5,-4.5);mmc.lineTo(-5,4.5);mmc.closePath();mmc.fill();mmc.restore()}
+function begin(){active=true;paused=false;player.setCharacter(charIndex);health=100;armor=player.character.armor;elapsed=0;gameClock=0;reloadUntil=0;fireHeld=false;player.reset();world.reset();fx.reset();fx.setWeaponLook(player.weaponIndex);aimBlend=0;player.group.visible=true;stopAim();start.classList.add('hidden');pause.classList.add('hidden');end.classList.add('hidden');hud.classList.remove('hidden');loadout.classList.add('hidden');$('#zone-warning').classList.add('hidden');setMsg(player.character.name+' · '+(world.teams?'Equipos: verdes contra rojos':'Todos contra todos')+' · busca suministros');updateHud()}
 function finish(win){if(!active)return;active=false;fireHeld=false;stopAim();hud.classList.add('hidden');end.classList.remove('hidden');$('#end-title').textContent=win?'¡VICTORIA!':'HAS SIDO ELIMINADO';$('#end-text').textContent=win?'Eres el último superviviente de Battle Zone.':'La zona te ha vencido. Equípate y vuelve a intentarlo.'}
-function damagePlayer(amount){if(!active)return;let rest=amount;if(armor>0){const absorb=Math.min(armor,rest*.7);armor-=absorb;rest-=absorb}health=Math.max(0,health-rest);updateHud();if(health<=0)finish(false)}
-function reload(){if(!active||paused||reloadUntil>gameClock)return;const w=player.weapon;if(w.mag===([30,6,12][player.weaponIndex])||w.reserve<=0){setMsg(w.reserve<=0?'Sin munición de reserva':'Cargador completo');return}reloadUntil=gameClock+1.25;setMsg('Recargando...')}
-function completeReload(){const w=player.weapon,max=[30,6,12][player.weaponIndex],need=max-w.mag,take=Math.min(need,w.reserve);w.mag+=take;w.reserve-=take;reloadUntil=0;updateHud();setMsg('¡Cargador listo!')}
+function damagePlayer(amount){if(!active)return;let rest=amount*player.character.dmgTaken;if(armor>0){const absorb=Math.min(armor,rest*.7);armor-=absorb;rest-=absorb}health=Math.max(0,health-rest);updateHud();if(health<=0)finish(false)}
+function reload(){if(!active||paused||reloadUntil>gameClock)return;const w=player.weapon;if(w.mag===w.max||w.reserve<=0){setMsg(w.reserve<=0?'Sin munición de reserva':'Cargador completo');return}reloadUntil=gameClock+(w.reloadT||1.25)*player.character.reloadMul;setMsg('Recargando...')}
+function completeReload(){const w=player.weapon,max=w.max,need=max-w.mag,take=Math.min(need,w.reserve);w.mag+=take;w.reserve-=take;reloadUntil=0;updateHud();setMsg('¡Cargador listo!')}
 function switchWeapon(){if(!active||paused)return;const w=player.switchWeapon();reloadUntil=0;fx.setWeaponLook(player.weaponIndex);stopAim();updateHud();setMsg('Arma equipada: '+w.label)}
 
 // ---- Disparo: un rayo por perdigón, bloqueado por el primer obstáculo o enemigo que toque ----
@@ -50,8 +62,8 @@ function shoot(){
  // Apuntando: el rayo sale del mismo punto que la cámara (ojo del jugador), así que coincide con el centro de la retícula.
  if(aiming)aimOrigin.set(player.position.x+aimDir.x*.25,player.position.y+EYE_H,player.position.z+aimDir.z*.25);
  else aimOrigin.set(player.position.x,player.position.y+1.2,player.position.z);
- const spreadK=aiming?.25:1;
- const wi=player.weaponIndex;fx.muzzle(wi);player.muzzle.getWorldPosition(muzzlePos);world.alertNear(player.position,32);
+ const spreadK=aiming?w.aimK:1;
+ const wi=player.weaponIndex;fx.muzzle(wi,w.quiet);player.muzzle.getWorldPosition(muzzlePos);world.alertNear(player.position,w.quiet?8:32);
  let hitAny=false,killed=false,headshot=false;
  for(let p=0;p<w.pellets;p++){
   ray.set(aimOrigin,aimDir);ray.near=0;ray.far=w.range;
@@ -73,7 +85,28 @@ function shoot(){
  if(world.enemies.every(e=>!e.userData.alive))finish(true)
 }
 
-function collectLoot(){for(const l of world.loot){if(!l.userData.active||l.position.distanceTo(player.position)>1.7)continue;l.userData.active=false;l.visible=false;const type=l.userData.type;if(type==='ammo'){player.weapons[0].reserve+=45;player.weapons[1].reserve+=12;player.weapons[2].reserve+=24;setMsg('Munición recogida')}if(type==='med'){health=Math.min(100,health+30);setMsg('Botiquín: +30 de vida')}if(type==='armor'){armor=Math.min(100,armor+35);setMsg('Placas: +35 de escudo')}updateHud()}}
+// ---- Equipamiento (mochila): ver estadísticas, instalar/quitar accesorios y elegir arma ----
+const loadout=$('#loadout'),bagBtn=$('#bag');
+function renderLoadout(){
+ const w=player.weapon,el=(t,c,txt)=>{const n=document.createElement(t);if(c)n.className=c;if(txt!=null)n.textContent=txt;return n};
+ $('#lo-weapon').textContent=w.label;
+ $('#lo-stats').textContent=`Daño ${Math.round(w.damage)}${w.pellets>1?' x'+w.pellets:''} · Cargador ${w.max} · Alcance ${w.range} m · Dispersión ${(w.spread*100).toFixed(1)} · Zoom ${w.zoom?w.zoom.toFixed(1)+'x':'sin mira'}`;
+ const slots=$('#lo-slots');slots.textContent='';
+ for(const [slot,label] of SLOTS){if(!w.slots.includes(slot))continue;const k=w.att[slot],b=el('button','lo-btn'+(k?' on':''),label+': '+(k?ACCESSORIES[k].name+'  ✕':'vacío'));b.disabled=!k;b.addEventListener('click',()=>{if(player.unequip(slot)){afterGearChange('Accesorio guardado en la mochila')}});slots.appendChild(b)}
+ const bag=$('#lo-bag');bag.textContent='';const keys=Object.keys(player.inv).filter(k=>player.inv[k]>0);
+ if(!keys.length)bag.appendChild(el('p','lo-empty','Mochila vacía: busca cajas naranjas en el mapa'));
+ for(const k of keys){const a=ACCESSORIES[k],ok=player.canEquip(w,k),b=el('button','lo-btn',`${a.name} x${player.inv[k]}${ok?'':' (no compatible)'}`);b.title=a.desc;b.disabled=!ok;b.addEventListener('click',()=>{if(player.equip(k))afterGearChange(a.name+' instalado')});bag.appendChild(b);bag.appendChild(el('small','lo-desc',a.desc))}
+ const guns=$('#lo-guns');guns.textContent='';
+ player.weapons.forEach((x,i)=>{if(!x.owned)return;const b=el('button','lo-btn'+(i===player.weaponIndex?' on':''),`${x.label}  ${x.mag}/${x.reserve}`);b.addEventListener('click',()=>{if(i!==player.weaponIndex&&player.selectWeapon(i)){reloadUntil=0;fx.setWeaponLook(i);afterGearChange('Arma equipada: '+x.label)}});guns.appendChild(b)})}
+function afterGearChange(msg){stopAim();fx.setWeaponLook(player.weaponIndex);updateHud();setMsg(msg);renderLoadout()}
+function openLoadout(){if(!active||paused)return;paused=true;fireHeld=false;stopAim();renderLoadout();loadout.classList.remove('hidden')}
+function closeLoadout(){loadout.classList.add('hidden');paused=false}
+if(bagBtn)bagBtn.addEventListener('pointerdown',e=>{e.preventDefault();openLoadout()});
+$('#lo-close').addEventListener('click',closeLoadout);
+function collectLoot(){for(const l of world.loot){if(!l.userData.active||l.position.distanceTo(player.position)>1.7)continue;l.userData.active=false;l.visible=false;const type=l.userData.type;if(type==='ammo'){player.weapons.forEach(x=>{if(x.owned)x.reserve+=x.pack});setMsg('Munición recogida para todas tus armas')}
+ if(type==='weapon'){const wi=l.userData.weapon,ww=player.weapons[wi];if(ww.owned){ww.reserve+=ww.pack*2;setMsg('Ya tienes '+ww.label+': +'+ww.pack*2+' balas')}else{player.giveWeapon(wi);reloadUntil=0;fx.setWeaponLook(wi);stopAim();setMsg('¡Nueva arma: '+ww.label+'!')}}
+ if(type==='acc'){const k=l.userData.acc,a=ACCESSORIES[k],ok=player.addAccessory(k);stopAim();setMsg(ok?a.name+' instalado en '+player.weapon.name:a.name+' guardado en la mochila (🎒)')}
+ if(type==='med'){health=Math.min(100,health+30);setMsg('Botiquín: +30 de vida')}if(type==='armor'){armor=Math.min(100,armor+35);setMsg('Placas: +35 de escudo')}updateHud()}}
 // Los enemigos solo disparan si están vivos, ven al jugador, no están en retirada ni aturdidos.
 const eFrom=new THREE.Vector3(),eTo=new THREE.Vector3();
 // Cada enemigo dispara a su objetivo (el jugador u otro enemigo hostil) solo si lo ve, no está en retirada ni aturdido. Contra el jugador: igual que antes.
@@ -85,9 +118,10 @@ function enemyAttacks(dt){let killed=false;for(const e of world.enemies){const u
  if(d<1.55){u.attack+=dt;if(u.attack>.8){u.attack=0;damagePlayer(5)}}else u.attack=0}
  if(killed){setMsg('¡Los enemigos se están matando entre ellos!');updateHud();if(world.enemies.every(x=>!x.userData.alive))finish(true)}}
 function updateZone(dt){const radius=world.zoneRadius;const dist=Math.hypot(player.position.x,player.position.z);const outside=dist>radius;$('#zone-warning').classList.toggle('hidden',!outside);if(outside){lastDamage+=dt;if(lastDamage>.65){lastDamage=0;damagePlayer(4);setMsg('¡Regresa a la zona segura!')}}else lastDamage=0;const left=Math.max(0,90-gameClock);$('#zone-time').textContent=`${String(Math.floor(left/60)).padStart(2,'0')}:${String(Math.floor(left%60)).padStart(2,'0')}`}
-$('#start-button').onclick=begin;$('#again').onclick=begin;$('#restart').onclick=begin;$('#resume').onclick=()=>{paused=false;pause.classList.add('hidden')};$('#pause').onclick=()=>{if(active){paused=true;fireHeld=false;pause.classList.remove('hidden')}};
+function toMenu(){active=false;paused=false;fireHeld=false;stopAim();hud.classList.add('hidden');pause.classList.add('hidden');end.classList.add('hidden');loadout.classList.add('hidden');start.classList.remove('hidden')}
+$('#to-menu').onclick=toMenu;$('#to-menu2').onclick=toMenu;$('#start-button').onclick=begin;$('#again').onclick=begin;$('#restart').onclick=begin;$('#resume').onclick=()=>{paused=false;pause.classList.add('hidden')};$('#pause').onclick=()=>{if(active){paused=true;fireHeld=false;pause.classList.remove('hidden')}};
 $('#fire').addEventListener('pointerdown',e=>{e.preventDefault();fireHeld=true;shoot()});['pointerup','pointercancel','pointerleave'].forEach(ev=>$('#fire').addEventListener(ev,()=>fireHeld=false));$('#jump').addEventListener('pointerdown',e=>{e.preventDefault();player.jump()});$('#reload').addEventListener('pointerdown',e=>{e.preventDefault();reload()});$('#switch').addEventListener('pointerdown',e=>{e.preventDefault();switchWeapon()});if(aimBtn)aimBtn.addEventListener('pointerdown',e=>{e.preventDefault();toggleAim()});$('#medkit').addEventListener('pointerdown',e=>{e.preventDefault();if(active&&health<100){health=Math.min(100,health+25);updateHud();setMsg('Vendaje aplicado: +25 de vida')}else setMsg('Tu vida ya está completa')});
-addEventListener('keydown',e=>{if(e.code==='Space')player.jump();if(e.code==='KeyR')reload();if(e.code==='KeyQ')switchWeapon();if(e.code==='KeyE')toggleAim();if(e.code==='Escape'&&active){paused=!paused;pause.classList.toggle('hidden',!paused)}});
+addEventListener('keydown',e=>{if(e.code==='Space')player.jump();if(e.code==='KeyR')reload();if(e.code==='KeyQ')switchWeapon();if(e.code==='KeyE')toggleAim();if(e.code==='KeyB')openLoadout();if(e.code==='Escape'&&active){if(!loadout.classList.contains('hidden'))closeLoadout();else{paused=!paused;pause.classList.toggle('hidden',!paused)}}});
 const clock=new THREE.Clock(),UP=new THREE.Vector3(0,1,0),camPos=new THREE.Vector3(),lookPos=new THREE.Vector3(),eyePos=new THREE.Vector3(),farPos=new THREE.Vector3();
 function loop(){requestAnimationFrame(loop);const dt=Math.min(clock.getDelta(),.04);
  // Zoom suave: mezcla 0 (tercera persona) → 1 (mira telescópica). El modelo del jugador se oculta al apuntar.
@@ -98,5 +132,5 @@ function loop(){requestAnimationFrame(loop);const dt=Math.min(clock.getDelta(),.
  if(active&&!paused){gameClock+=dt;controls.update();aimMove.set(controls.move.x,controls.move.y).multiplyScalar(aiming?.45:1);player.update(dt,aimMove);if(fireHeld&&player.weapon.auto)shoot();if(reloadUntil>0&&gameClock>=reloadUntil)completeReload();world.update(dt,player,gameClock);enemyAttacks(dt);collectLoot();updateZone(dt);camPos.set(0,3.1,6.6).applyAxisAngle(UP,player.yaw).add(player.position);lookPos.copy(player.position);lookPos.y+=1.2;
   if(aimBlend>0){const fx_=-Math.sin(player.yaw),fz_=-Math.cos(player.yaw);eyePos.set(player.position.x+fx_*.25,player.position.y+EYE_H,player.position.z+fz_*.25);farPos.set(eyePos.x+fx_*30,eyePos.y,eyePos.z+fz_*30);camPos.lerp(eyePos,aimBlend);lookPos.lerp(farPos,aimBlend)}
   if(aimBlend>.97)camera.position.copy(camPos);else camera.position.lerp(camPos,1-Math.pow(.001,dt));
-  camera.lookAt(lookPos);}fx.update(dt);renderer.render(scene,camera)}
+  camera.lookAt(lookPos);}fx.update(dt);mmT+=dt;if(mmT>.1){mmT=0;if(active)drawMap()}renderer.render(scene,camera)}
 function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5))}addEventListener('resize',resize);syncAim();updateHud();$('#loading').classList.add('hidden');loop();

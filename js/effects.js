@@ -3,8 +3,11 @@ import * as THREE from 'three';
 // Estilo visual de cada arma: [rifle, escopeta, pistola]
 const STYLES=[
  {flash:0xffa63c,size:.34,tracer:0xffd27a,tw:.04,streak:2.4,speed:230,kick:.08,rot:.05,sparks:4,look:[1,1,1]},
- {flash:0xff6a1a,size:.66,tracer:0xff9a3a,tw:.055,streak:1.2,speed:150,kick:.22,rot:.15,sparks:2,look:[1.35,1.35,.8]},
- {flash:0xfff0b0,size:.24,tracer:0xfff6d0,tw:.028,streak:1.6,speed:200,kick:.05,rot:.1,sparks:3,look:[.9,.9,.5]}
+ {flash:0xff6a1a,size:.66,tracer:0xff9a3a,tw:.055,streak:1.2,speed:150,kick:.22,rot:.15,sparks:2,look:[1,1,1]},
+ {flash:0xfff0b0,size:.24,tracer:0xfff6d0,tw:.028,streak:1.6,speed:200,kick:.05,rot:.1,sparks:3,look:[1,1,1]},
+ {flash:0xffd070,size:.26,tracer:0xffe39a,tw:.03,streak:1.8,speed:210,kick:.04,rot:.12,sparks:3,look:[1,1,1]},
+ {flash:0xffe6a0,size:.5,tracer:0xfff0c0,tw:.05,streak:3.4,speed:330,kick:.3,rot:.12,sparks:5,look:[1,1,1]},
+ {flash:0xffb050,size:.5,tracer:0xffd890,tw:.045,streak:2,speed:240,kick:.2,rot:.14,sparks:4,look:[1,1,1]}
 ];
 const KINDS={ // color de las partículas según la superficie
  blood:{color:0xb81e1e,puff:0xff4030},
@@ -57,7 +60,7 @@ export function createEffects(scene,player){
  // --- Retroceso y aspecto del arma ---
  const g=player.gun,base={z:g.position.z};let kick=0,kickStyle=STYLES[0];
  function setWeaponLook(i){const s=STYLES[i]||STYLES[0];kickStyle=s;g.scale.set(s.look[0],s.look[1],s.look[2]);flashMat.color.setHex(s.flash)}
- function muzzle(i){const s=STYLES[i]||STYLES[0];kickStyle=s;kick=1;flashT=.055;flashMat.color.setHex(s.flash);flash.scale.setScalar(s.size*(.85+Math.random()*.3));flash.rotation.z=Math.random()*6.28;flash.visible=true}
+ function muzzle(i,quiet){const s=STYLES[i]||STYLES[0];kickStyle=s;kick=1;flashT=.055;flashMat.color.setHex(s.flash);flash.scale.setScalar(s.size*(.85+Math.random()*.3)*(quiet?.3:1));flash.rotation.z=Math.random()*6.28;flash.visible=true}
  function shotTracer(from,to,i){tracer(from,to,STYLES[i]||STYLES[0])}
  function enemyTracer(from,to){tracer(from,to,{tracer:0xff6a5a,tw:.04,streak:1.6,speed:90})}
  function shotImpact(point,kind,i){impact(point,kind,STYLES[i]||STYLES[0])}
