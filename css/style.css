@@ -35,3 +35,14 @@
 .weapon-info{border-color:rgba(199,243,107,.35)}
 #status-message{top:80px;max-width:62vw;overflow:hidden;text-overflow:ellipsis;border:1px solid rgba(255,255,255,.12)}
 @media(min-width:800px){#minimap{left:22px;top:88px;width:128px;height:128px}}
+
+/* ===== Lobby: personaje 3D a la vista ===== */
+#start-screen{place-items:center start;padding-left:max(18px,5vw);background:linear-gradient(90deg,rgba(5,12,16,.93) 0,rgba(5,12,16,.8) 36%,rgba(5,12,16,.15) 62%,transparent 80%)}
+#start-screen .hero-panel{width:min(100%,420px);margin:auto 0;background:rgba(9,17,21,.62);backdrop-filter:blur(10px);padding:22px 20px;text-align:left}
+#start-screen .hero-panel h1{font-size:clamp(34px,8vw,52px)}
+.mode-row{display:flex;gap:8px;margin:12px 0 0}
+.mode{flex:1;padding:9px 6px;border:1px solid rgba(255,255,255,.2);border-radius:9px;background:rgba(255,255,255,.06);color:#cbd6d8;font-size:10px;font-weight:900;letter-spacing:.5px;cursor:pointer;touch-action:manipulation}
+.mode.on{background:var(--accent);color:#142019;border-color:var(--accent)}
+#start-screen .feature-row{justify-content:flex-start;margin:12px 0}
+@media(orientation:portrait){#start-screen{place-items:end center;padding:12px;background:linear-gradient(180deg,transparent 0,transparent 30%,rgba(5,12,16,.88) 62%)}#start-screen .hero-panel{margin:0;width:100%}}
+@media(max-height:460px) and (orientation:landscape){#start-screen .hero-panel{padding:14px 16px}#start-screen .hero-panel h1{font-size:30px}.pick-title{margin:8px 0 4px}.char-card{padding:7px 4px}.char-card::before{width:22px;height:22px}#start-screen .feature-row{display:none}.char-desc{min-height:0;margin:6px 0 0}}
