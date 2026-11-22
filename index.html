@@ -4,24 +4,32 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <meta name="theme-color" content="#101820">
-  <meta name="description" content="Battle Zone 3D: supervivencia Battle Royale para navegador móvil y escritorio.">
-  <title>Battle Zone 3D — Versión 2.0</title>
+  <meta name="description" content="EGO ZNE: supervivencia Battle Royale 3D para móvil y escritorio.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="EGO ZNE">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/png" href="./icons/icon-192.png">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <title>EGO ZNE — Battle Royale 3D</title>
   <link rel="stylesheet" href="./css/style.css">
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"}}</script>
 </head>
 <body>
   <div id="game"></div>
-  <div id="loading" class="loading"><div class="loader"></div><b>PREPARANDO LA ZONA...</b></div>
+  <div id="loading" class="loading"><div class="loader"></div><b class="load-logo">EGO <i>ZNE</i></b><b>PREPARANDO LA ZONA...</b></div>
 
   <section id="start-screen" class="screen">
     <div class="panel hero-panel">
-      <p class="eyebrow">SUPERVIVENCIA · TEMPORADA 02</p>
-      <h1>BATTLE ZONE <span>3D</span></h1>
+      <p class="eyebrow">BATTLE ROYALE · TEMPORADA 02</p>
+      <h1>EGO <span>ZNE</span></h1>
       <p class="subtitle">SOBREVIVE. EQUÍPATE. DOMINA LA ZONA.</p>
-      <p class="intro">Una isla, enemigos hostiles y una zona segura que se reduce. Sé el último superviviente.</p>
-      <div class="feature-row"><span>⚔ 8 ENEMIGOS</span><span>◉ BOTÍN</span><span>◷ ZONA DINÁMICA</span></div>
+      <p class="pick-title">ELIGE TU PERSONAJE</p>
+      <div id="char-list" class="char-list"></div>
+      <p id="char-desc" class="char-desc"></p>
+      <div class="feature-row"><span>⚔ 8 ENEMIGOS</span><span>◉ BOTÍN POR TODO EL MAPA</span><span>◷ ZONA DINÁMICA</span></div>
       <button id="start-button" class="primary">ENTRAR EN COMBATE</button>
-      <small>Prototipo individual · Se necesita internet para cargar Three.js</small>
+      <small>Instálalo como app: menú del navegador → «Añadir a pantalla de inicio»</small>
     </div>
   </section>
 
@@ -34,23 +42,27 @@
       <div class="stat"><span>MUNICIÓN</span><b id="ammo">30 / 120</b></div>
       <div class="stat"><span>VIVOS</span><b id="alive">9</b></div>
     </div>
+    <canvas id="minimap" width="120" height="120" aria-label="Minimapa"></canvas>
     <div id="zone-warning" class="zone-warning hidden">⚠ FUERA DE LA ZONA SEGURA</div>
     <div id="crosshair"><i></i><i></i><i></i><i></i></div>
     <div id="status-message">Busca equipo y sobrevive</div>
     <div class="bottom-hud"><div class="zone-info">ZONA SEGURA <b id="zone-time">01:30</b></div><div class="weapon-info"><b id="weapon-label">RIFLE DE ASALTO</b><span id="ammo-label">30 / 120</span></div></div>
     <div id="joy" aria-label="Joystick para moverse"><div id="knob"></div></div>
     <div class="look-hint">ARRASTRA PARA MIRAR</div>
-    <button id="fire" class="action fire">DISPARAR</button>
-    <button id="jump" class="action jump">SALTAR</button>
-    <button id="reload" class="action reload">RECARGAR</button>
-    <button id="medkit" class="action medkit">+ VIDA</button>
-    <button id="switch" class="action switch">CAMBIAR ARMA</button>
-    <button id="aim" class="action aim hidden">APUNTAR</button>
+    <button id="fire" class="action fire"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6.5"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg><span>DISPARAR</span></button>
+    <button id="jump" class="action jump"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 13l6-6 6 6M6 19l6-6 6 6"/></svg><span>SALTAR</span></button>
+    <button id="reload" class="action reload"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg><span>RECARGAR</span></button>
+    <button id="medkit" class="action medkit"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4h4v6h6v4h-6v6h-4v-6H4v-4h6z" fill="currentColor"/></svg><span>+ VIDA</span></button>
+    <button id="switch" class="action switch"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg><span>ARMA</span></button>
+    <button id="aim" class="action aim hidden"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 2v6M12 16v6M2 12h6M16 12h6"/></svg><span id="aim-label">APUNTAR</span></button>
     <button id="pause" class="pause">Ⅱ</button>
+    <button id="bag" class="pause bag" aria-label="Mochila"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7V6a4 4 0 0 1 8 0v1M6 8h12a1 1 0 0 1 1 1v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9a1 1 0 0 1 1-1zM9 14h6"/></svg></button>
   </div>
 
-  <section id="pause-screen" class="screen hidden"><div class="panel"><p class="eyebrow">BATTLE ZONE 3D</p><h2>PARTIDA EN PAUSA</h2><button id="resume" class="primary">CONTINUAR</button><button id="restart" class="secondary">REINICIAR PARTIDA</button></div></section>
-  <section id="end-screen" class="screen hidden"><div class="panel"><p class="eyebrow">RESULTADO DE LA MISIÓN</p><h2 id="end-title">PARTIDA TERMINADA</h2><p id="end-text"></p><button id="again" class="primary">VOLVER A JUGAR</button></div></section>
+  <section id="loadout" class="screen hidden"><div class="panel loadout-panel"><p class="eyebrow">EQUIPAMIENTO</p><h2 id="lo-weapon">ARMA</h2><p id="lo-stats" class="lo-stats"></p><h3>Accesorios instalados</h3><div id="lo-slots" class="lo-list"></div><h3>Mochila</h3><div id="lo-bag" class="lo-list"></div><h3>Tus armas</h3><div id="lo-guns" class="lo-list"></div><button id="lo-close" class="primary">CERRAR</button></div></section>
+  <section id="pause-screen" class="screen hidden"><div class="panel"><p class="eyebrow">EGO ZNE</p><h2>PARTIDA EN PAUSA</h2><button id="resume" class="primary">CONTINUAR</button><button id="restart" class="secondary">REINICIAR PARTIDA</button><button id="to-menu" class="secondary">MENÚ · CAMBIAR PERSONAJE</button></div></section>
+  <section id="end-screen" class="screen hidden"><div class="panel"><p class="eyebrow">RESULTADO DE LA MISIÓN</p><h2 id="end-title">PARTIDA TERMINADA</h2><p id="end-text"></p><button id="again" class="primary">VOLVER A JUGAR</button><button id="to-menu2" class="secondary">MENÚ · CAMBIAR PERSONAJE</button></div></section>
   <script type="module" src="./js/main.js"></script>
+  <script>if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0){addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){})})}</script>
 </body>
 </html>
