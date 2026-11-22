@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <title>EGO ZNE — Battle Royale 3D</title>
   <link rel="stylesheet" href="./css/style.css">
-  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"}}</script>
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
 </head>
 <body>
   <div id="game"></div>
@@ -27,6 +27,7 @@
       <p class="pick-title">ELIGE TU PERSONAJE</p>
       <div id="char-list" class="char-list"></div>
       <p id="char-desc" class="char-desc"></p>
+      <div class="mode-row"><button id="mode-ffa" class="mode on">TODOS CONTRA TODOS</button><button id="mode-teams" class="mode">POR EQUIPOS</button></div>
       <div class="feature-row"><span>⚔ 8 ENEMIGOS</span><span>◉ BOTÍN POR TODO EL MAPA</span><span>◷ ZONA DINÁMICA</span></div>
       <button id="start-button" class="primary">ENTRAR EN COMBATE</button>
       <small>Instálalo como app: menú del navegador → «Añadir a pantalla de inicio»</small>
