@@ -30,7 +30,11 @@ jobs:
           cp -r index.html css js icons manifest.webmanifest www/
           mkdir three-tmp && cd three-tmp && npm init -y >/dev/null && npm install three@0.170.0 && cd ..
           cp three-tmp/node_modules/three/build/three.module.js www/vendor/three.module.js
-          sed -i 's#https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js#./vendor/three.module.js#' www/index.html
+          mkdir -p www/vendor/addons/loaders www/vendor/addons/utils
+          cp three-tmp/node_modules/three/examples/jsm/loaders/GLTFLoader.js www/vendor/addons/loaders/
+          cp three-tmp/node_modules/three/examples/jsm/utils/BufferGeometryUtils.js www/vendor/addons/utils/
+          cp -r models www/ 2>/dev/null || true
+          sed -i 's#https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js#./vendor/three.module.js#; s#https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/#./vendor/addons/#' www/index.html
           grep -n "vendor/three.module.js" www/index.html
 
       - name: Instalar Capacitor
