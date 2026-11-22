@@ -27,7 +27,7 @@ jobs:
       - name: Preparar carpeta web (Three.js local para jugar sin internet)
         run: |
           mkdir -p www/vendor
-          cp -r index.html css js icons manifest.webmanifest www/
+          cp -r index.html css js icons ui manifest.webmanifest www/
           mkdir three-tmp && cd three-tmp && npm init -y >/dev/null && npm install three@0.170.0 && cd ..
           cp three-tmp/node_modules/three/build/three.module.js www/vendor/three.module.js
           mkdir -p www/vendor/addons/loaders www/vendor/addons/utils
