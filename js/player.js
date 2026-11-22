@@ -14,9 +14,9 @@ export const SLOTS=[['scope','MIRA'],['mag','CARGADOR'],['grip','EMPUÑADURA'],[
 // ---------- Personajes jugables ----------
 // speed: velocidad · armor: escudo inicial · reloadMul: multiplicador del tiempo de recarga · dmgTaken: multiplicador del daño recibido
 export const CHARACTERS=[
- {id:'zane',name:'ZANE',role:'SOLDADO',desc:'Equilibrado en todo',speed:5.4,armor:25,reloadMul:1,dmgTaken:1,pack:1,extras:['scarf'],colors:{uniform:0x4d5b48,dark:0x242c2a,skin:0xb98563,boot:0x171d1a,accent:0xc7f36b}},
- {id:'lyra',name:'LYRA',role:'EXPLORADORA',desc:'Rápida y recarga veloz, sin escudo inicial',speed:6.2,armor:0,reloadMul:.75,dmgTaken:1,pack:.8,extras:['band'],colors:{uniform:0x8c3a36,dark:0x2a1f22,skin:0xd9a07a,boot:0x1c1416,accent:0xff5a4c}},
- {id:'bruno',name:'BRUNO',role:'TANQUE',desc:'Lento pero resistente: +escudo y -15 % de daño recibido',speed:4.8,armor:60,reloadMul:1.1,dmgTaken:.85,pack:1.25,extras:['helmet','vest'],colors:{uniform:0x4a5a73,dark:0x1f2630,skin:0x8a5a3c,boot:0x11151b,accent:0x59d8ff}}
+ {id:'zane',name:'ZANE',role:'SOLDADO',desc:'Equilibrado en todo',speed:5.4,armor:25,reloadMul:1,dmgTaken:1,pack:1,extras:['scarf','goggles','hairS'],colors:{uniform:0x4d5b48,dark:0x242c2a,skin:0xb98563,boot:0x171d1a,accent:0xc7f36b,hair:0x3a2a1f}},
+ {id:'lyra',name:'LYRA',role:'EXPLORADORA',desc:'Rápida y recarga veloz, sin escudo inicial',speed:6.2,armor:0,reloadMul:.75,dmgTaken:1,pack:.8,extras:['band','hairL','tail'],colors:{uniform:0x8c3a36,dark:0x2a1f22,skin:0xd9a07a,boot:0x1c1416,accent:0xff5a4c,hair:0x2b1a14}},
+ {id:'bruno',name:'BRUNO',role:'TANQUE',desc:'Lento pero resistente: +escudo y -15 % de daño recibido',speed:4.8,armor:60,reloadMul:1.1,dmgTaken:.85,pack:1.25,extras:['helmet','vest','knees','shoulders'],colors:{uniform:0x4a5a73,dark:0x1f2630,skin:0x8a5a3c,boot:0x11151b,accent:0x59d8ff,hair:0x151515}}
 ];
 
 // ---------- Armas (única fuente de datos) ----------
@@ -65,19 +65,37 @@ export class Player{
    this.weapons=WEAPONS.map(d=>{const w={...d,falloff:[...d.falloff],slots:[...d.slots]};w.base={max:w.max,spread:w.spread,zoom:w.zoom,aimK:w.aimK,range:w.range,damage:w.damage};w.start={mag:w.mag,reserve:w.reserve};w.att={scope:null,mag:null,grip:null,muzzle:null};w.quiet=false;return w});
    this.inv={};this.lastShot=0;this.buildModel();scene.add(this.group)}
   buildModel(){const M=(r=.82,m=0)=>new THREE.MeshStandardMaterial({color:0x888888,roughness:r,metalness:m});
-   const mats=this.mats={uniform:M(),dark:M(),skin:M(),boot:M(.9),accent:M(.5,.2)};const {uniform,dark,skin,boot,accent}=mats;
-   const add=(geo,ma,x,y,z)=>{const o=new THREE.Mesh(geo,ma);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;this.group.add(o);return o};
-   add(new THREE.CapsuleGeometry(.34,.76,5,10),uniform,0,1.05,0);add(new THREE.SphereGeometry(.235,16,12),skin,0,1.78,0);add(new THREE.BoxGeometry(.43,.28,.35),dark,0,1.45,.03);const pack=add(new THREE.BoxGeometry(.52,.58,.25),dark,0,1.02,.34);this.pack=pack;
-   for(const s of [-1,1]){add(new THREE.CapsuleGeometry(.105,.55,4,8),uniform,s*.2,.43,0);add(new THREE.BoxGeometry(.19,.2,.38),boot,s*.2,.13,-.05);add(new THREE.CapsuleGeometry(.09,.48,4,8),uniform,s*.4,1.05,-.03);add(new THREE.SphereGeometry(.11,10,8),skin,s*.4,.78,.04)}
+   const mats=this.mats={uniform:M(),dark:M(),skin:M(),boot:M(.9),accent:M(.5,.2),hair:M(.95),eye:M(.3)};const {uniform,dark,skin,boot,accent,hair,eye}=mats;
+   const parts=this.bodyParts=[];
+   const add=(geo,ma,x,y,z)=>{const o=new THREE.Mesh(geo,ma);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;this.group.add(o);parts.push(o);return o};
+   add(new THREE.CapsuleGeometry(.34,.76,5,10),uniform,0,1.05,0);add(new THREE.SphereGeometry(.235,16,12),skin,0,1.78,0);add(new THREE.BoxGeometry(.43,.28,.35),dark,0,1.45,.03);this.pack=add(new THREE.BoxGeometry(.52,.58,.25),dark,0,1.02,.34);
+   for(const s of [-1,1]){add(new THREE.CapsuleGeometry(.105,.55,4,8),uniform,s*.2,.43,0);add(new THREE.BoxGeometry(.19,.2,.38),boot,s*.2,.13,-.05);add(new THREE.CapsuleGeometry(.09,.48,4,8),uniform,s*.4,1.05,-.03);add(new THREE.SphereGeometry(.115,10,8),dark,s*.4,.78,.04); // guantes
+    add(new THREE.SphereGeometry(.032,8,6),eye,s*.085,1.81,-.215)} // ojos
+   add(new THREE.BoxGeometry(.72,.09,.42),dark,0,.72,0);add(new THREE.BoxGeometry(.12,.1,.05),accent,0,.72,-.22); // cinturón y hebilla
    // Detalles que distinguen a cada personaje (se muestran u ocultan en setCharacter)
-   this.extras={band:add(new THREE.TorusGeometry(.225,.04,6,16),accent,0,1.86,0),helmet:add(new THREE.SphereGeometry(.27,16,10,0,Math.PI*2,0,Math.PI/2),accent,0,1.8,0),vest:add(new THREE.BoxGeometry(.6,.42,.4),accent,0,1.1,-.02),scarf:add(new THREE.BoxGeometry(.4,.1,.36),accent,0,1.6,0)};
-   this.extras.band.rotation.x=Math.PI/2;
+   const E=this.extras={};
+   E.band=add(new THREE.TorusGeometry(.225,.04,6,16),accent,0,1.86,0);E.band.rotation.x=Math.PI/2;
+   E.helmet=add(new THREE.SphereGeometry(.27,16,10,0,Math.PI*2,0,Math.PI/2),accent,0,1.8,0);
+   E.vest=add(new THREE.BoxGeometry(.6,.42,.4),accent,0,1.1,-.02);
+   E.scarf=add(new THREE.BoxGeometry(.4,.1,.36),accent,0,1.6,0);
+   E.goggles=add(new THREE.BoxGeometry(.38,.09,.07),accent,0,1.88,-.2);
+   E.hairS=add(new THREE.SphereGeometry(.245,16,10,0,Math.PI*2,0,Math.PI*.55),hair,0,1.8,.01);
+   E.hairL=add(new THREE.SphereGeometry(.25,16,10,0,Math.PI*2,0,Math.PI*.62),hair,0,1.79,.03);
+   E.tail=add(new THREE.CapsuleGeometry(.065,.42,4,8),hair,0,1.62,.3);E.tail.rotation.x=-.35;
+   E.knees=add(new THREE.BoxGeometry(.5,.16,.2),accent,0,.46,-.12);
+   E.shoulders=add(new THREE.SphereGeometry(.16,10,8),accent,-.43,1.52,0);E.shoulders2=add(new THREE.SphereGeometry(.16,10,8),accent,.43,1.52,0);
    // el arma es un grupo fijo (this.gun) cuyo contenido cambia según el arma y sus accesorios (buildGun); this.muzzle es la boca del cañón
-   const gun=new THREE.Group();gun.position.set(.27,1.12,-.37);this.group.add(gun);this.gun=gun;this.muzzle=new THREE.Object3D();this.muzzle.position.set(0,.01,-1.1);gun.add(this.muzzle);this.setCharacter(this.charIndex);this.buildGun()}
+   const gun=new THREE.Group();gun.position.set(.27,1.12,-.37);this.group.add(gun);this.gun=gun;this.muzzle=new THREE.Object3D();this.muzzle.position.set(0,.01,-1.1);gun.add(this.muzzle);this.custom={};this.setCharacter(this.charIndex);this.buildGun()}
   get character(){return CHARACTERS[this.charIndex]}
   // Aplica colores, detalles y habilidades del personaje elegido (ver CHARACTERS)
-  setCharacter(i){const c=CHARACTERS[i]||CHARACTERS[0];this.charIndex=CHARACTERS.indexOf(c);const m=this.mats;for(const k of ['uniform','dark','skin','boot','accent']){m[k].color.setHex(c.colors[k])}
-   for(const k of Object.keys(this.extras))this.extras[k].visible=c.extras.includes(k);this.pack.scale.set(c.pack,c.pack,c.pack);this.speed=c.speed}
+  setCharacter(i){const c=CHARACTERS[i]||CHARACTERS[0];this.charIndex=CHARACTERS.indexOf(c);const m=this.mats;for(const k of Object.keys(c.colors))m[k].color.setHex(c.colors[k]);
+   const custom=this.custom[c.id];
+   for(const [k,o] of Object.entries(this.extras)){const on=c.extras.includes(k)||(k==='shoulders2'&&c.extras.includes('shoulders'));o.visible=!custom&&on}
+   this.bodyParts.forEach(o=>{if(!Object.values(this.extras).includes(o))o.visible=!custom});
+   for(const [id,o] of Object.entries(this.custom))o.visible=(id===c.id);
+   this.pack.scale.set(c.pack,c.pack,c.pack);this.speed=c.speed}
+  // Modelo 3D propio (.glb) para un personaje: sustituye al modelo hecho con formas básicas. Ver loadCustomModels en main.js
+  setCustomModel(id,obj){const box=new THREE.Box3().setFromObject(obj),h=box.max.y-box.min.y;if(h>0)obj.scale.multiplyScalar(1.8/h);obj.position.y-=box.min.y*(1.8/h||1);obj.rotation.y=Math.PI;this.group.add(obj);this.custom[id]=obj;this.setCharacter(this.charIndex)}
   // Reconstruye el modelo 3D del arma actual con sus accesorios instalados
   buildGun(){const g=this.gun,w=this.weapon,att=w.att,M=MODELS[w.model];
    for(const c of [...g.children]){if(c===this.muzzle)continue;g.remove(c);if(c.geometry)c.geometry.dispose()}
