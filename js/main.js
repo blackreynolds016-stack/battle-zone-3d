@@ -3,11 +3,12 @@ import {Player,ACCESSORIES,SLOTS,CHARACTERS} from './player.js';
 import {makeLobbyStage} from './lobby.js';
 import {Controls} from './controls.js';
 import {makeWorld} from './world.js';
+import {GRID,HALF,POIS,gridColors} from './terrain.js';
 import {createEffects} from './effects.js';
 
 const $=s=>document.querySelector(s),root=$('#game');
-const scene=new THREE.Scene();scene.background=new THREE.Color(0x9bb7c0);scene.fog=new THREE.Fog(0x9bb7c0,42,105);
-const camera=new THREE.PerspectiveCamera(66,innerWidth/innerHeight,.1,180);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x9bb7c0);scene.fog=new THREE.Fog(0x9bb7c0,70,250);
+const camera=new THREE.PerspectiveCamera(66,innerWidth/innerHeight,.1,320);
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;root.appendChild(renderer.domElement);
 scene.add(new THREE.HemisphereLight(0xd9ecff,0x45543b,1.7));const sun=new THREE.DirectionalLight(0xffe2bb,2.4);sun.position.set(-28,42,20);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-55;sun.shadow.camera.right=55;sun.shadow.camera.top=55;sun.shadow.camera.bottom=-55;sun.shadow.bias=-.00025;scene.add(sun);scene.add(sun.target);const SUN_OFF={x:-28,y:42,z:20};
 const world=makeWorld(scene),player=new Player(scene),controls=new Controls(player),ray=new THREE.Raycaster();ray.far=90;
@@ -26,7 +27,11 @@ let aiming=false,aimBlend=0,aimZoom=1,scopeShown=false;const BASE_FOV=camera.fov
 player.lookScale=1;
 function syncAim(){const can=!!player.weapon.zoom;if(!can)aiming=false;if(aimBtn){aimBtn.classList.toggle('hidden',!can);aimBtn.classList.toggle('on',aiming);const al=$('#aim-label');if(al)al.textContent=aiming?'SALIR MIRA':'APUNTAR'}}
 function stopAim(){aiming=false;syncAim()}
-function toggleAim(){if(!active||paused)return;if(!player.weapon.zoom){setMsg('Esta arma no tiene mira telescópica');return}aiming=!aiming;if(aiming)aimZoom=player.weapon.zoom;syncAim();setMsg(aiming?'Mira telescópica activada':'Mira desactivada')}
+const stBtn={sprint:$('#sprint'),crouch:$('#crouch'),prone:$('#prone')};let stKey='';
+function syncStance(){const k=player.stance+''+(player.sprinting?1:0);if(k===stKey)return;stKey=k;stBtn.sprint.classList.toggle('on',player.sprinting);stBtn.crouch.classList.toggle('on',player.stance===1);stBtn.prone.classList.toggle('on',player.stance===2)}
+function doStance(s){if(!active||paused)return;if(s==='sprint'){if(player.stance!==0){player.stance=0}player.toggleSprint();if(player.sprinting&&aiming)stopAim()}else{player.toggleStance(s==='crouch'?1:2);if(aiming&&player.stance===2)syncAim()}syncStance()}
+for(const k of ['sprint','crouch','prone'])stBtn[k].addEventListener('pointerdown',e=>{e.preventDefault();doStance(k)});
+function toggleAim(){if(!active||paused)return;if(!player.weapon.zoom){setMsg('Esta arma no tiene mira telescópica');return}aiming=!aiming;if(aiming){aimZoom=player.weapon.zoom;if(player.sprinting){player.sprinting=false;syncStance()}}syncAim();setMsg(aiming?'Mira telescópica activada':'Mira desactivada')}
 const ICON={"n4a1": [0.0, 0.0], "ak47": [14.286, 0.0], "scar": [28.571, 0.0], "nps": [42.857, 0.0], "ump": [57.143, 0.0], "p90": [71.429, 0.0], "awm": [85.714, 0.0], "kar98": [100.0, 0.0], "m82b": [0.0, 33.333], "dual": [14.286, 33.333], "deagle": [28.571, 33.333], "pistol": [42.857, 33.333], "scope2": [57.143, 33.333], "scope4": [71.429, 33.333], "thermal": [85.714, 33.333], "reddot": [100.0, 33.333], "silencer": [0.0, 66.667], "mag": [14.286, 66.667], "stock": [28.571, 66.667], "grip": [42.857, 66.667], "extmag": [57.143, 66.667], "bipod": [71.429, 66.667], "laser": [85.714, 66.667], "brake": [100.0, 66.667], "medkit": [0.0, 100.0], "repair": [14.286, 100.0], "gloo": [28.571, 100.0], "inhaler": [42.857, 100.0], "vest1": [57.143, 100.0], "vest2": [71.429, 100.0], "vest3": [85.714, 100.0], "shotgun": [100.0, 100.0]};
 function setIco(el,key){const p=ICON[key];if(el&&p)el.style.backgroundPosition=p[0]+'% '+p[1]+'%'}
 const WICON={rifle:'ak47',shotgun:'shotgun',pistol:'pistol',smg:'ump',sniper:'awm',revolver:'deagle'},AICON={scope1:'reddot',scope4:'scope4',mag:'extmag',grip:'grip',muzzle:'silencer'};
@@ -39,12 +44,21 @@ function renderChars(){if(!charList)return;charList.textContent='';CHARACTERS.fo
 player.setCharacter(charIndex);renderChars();
 // ---- Minimapa: zona segura, jugador, botín y enemigos cercanos ----
 const mm=$('#minimap'),mmc=mm&&mm.getContext?mm.getContext('2d'):null,LOOT_COL={ammo:'#d5b54b',med:'#55cf85',armor:'#62bce9',weapon:'#b07cff',acc:'#ff9a3c'};let mmT=0;
-function drawMap(){if(!mmc)return;const S=mm.width,k=S/84,c=S/2;mmc.clearRect(0,0,S,S);mmc.fillStyle='rgba(10,18,22,.72)';mmc.fillRect(0,0,S,S);
- mmc.strokeStyle='#67c8ff';mmc.lineWidth=2;mmc.beginPath();mmc.arc(c+world.zoneCenter.x*k,c+world.zoneCenter.y*k,Math.max(1,world.zoneRadius*k),0,6.283);mmc.stroke();
- const px=player.position.x,pz=player.position.z;
- for(const l of world.loot){if(!l.userData.active)continue;if(Math.hypot(l.position.x-px,l.position.z-pz)>24)continue;mmc.fillStyle=LOOT_COL[l.userData.type]||'#fff';mmc.fillRect(c+l.position.x*k-2,c+l.position.z*k-2,4,4)}
- mmc.fillStyle='#ff4d4d';for(const e of world.enemies){if(!e.userData.alive)continue;if(Math.hypot(e.position.x-px,e.position.z-pz)>22)continue;mmc.beginPath();mmc.arc(c+e.position.x*k,c+e.position.z*k,3,0,6.283);mmc.fill()}
- mmc.save();mmc.translate(c+px*k,c+pz*k);mmc.rotate(Math.atan2(-Math.cos(player.yaw),-Math.sin(player.yaw)));mmc.fillStyle='#c7f36b';mmc.beginPath();mmc.moveTo(7,0);mmc.lineTo(-5,-4.5);mmc.lineTo(-5,4.5);mmc.closePath();mmc.fill();mmc.restore()}
+// Isla pre-dibujada una sola vez (1 celda = 4 px); el minimapa solo recorta y escala esta imagen
+const terrImg=(()=>{if(typeof document==='undefined'||!document.createElement)return null;const N=GRID.length,c=document.createElement('canvas');c.width=c.height=N*4;const x=c.getContext&&c.getContext('2d');if(!x)return null;
+ for(let j=0;j<N;j++)for(let i=0;i<N;i++){x.fillStyle=gridColors[GRID[j][i]];x.fillRect(i*4,j*4,4,4)}
+ x.fillStyle='rgba(200,200,210,.85)';for(const p of POIS){x.beginPath();x.arc((p.x+HALF)/(2*HALF)*N*4,(p.z+HALF)/(2*HALF)*N*4,p.r/(2*HALF)*N*4*.55,0,6.283);x.fill()}return c})();
+let mmBig=false;
+function drawMap(){if(!mmc)return;const S=mm.width,WIN=mmBig?2*HALF+16:110,k=S/WIN,c=S/2,px=player.position.x,pz=player.position.z,cx=mmBig?0:px,cz=mmBig?0:pz;
+ mmc.imageSmoothingEnabled=true;mmc.fillStyle='#1d5f9a';mmc.fillRect(0,0,S,S);
+ if(terrImg)mmc.drawImage(terrImg,c+(-HALF-cx)*k,c+(-HALF-cz)*k,2*HALF*k,2*HALF*k);
+ const X=x=>c+(x-cx)*k,Z=z=>c+(z-cz)*k;
+ mmc.strokeStyle='#67c8ff';mmc.lineWidth=2;mmc.beginPath();mmc.arc(X(world.zoneCenter.x),Z(world.zoneCenter.y),Math.max(1,world.zoneRadius*k),0,6.283);mmc.stroke();
+ const lr=mmBig?0:36,sz=mmBig?3:4;
+ if(lr)for(const l of world.loot){if(!l.userData.active)continue;if(Math.hypot(l.position.x-px,l.position.z-pz)>lr)continue;mmc.fillStyle=LOOT_COL[l.userData.type]||'#fff';mmc.fillRect(X(l.position.x)-sz/2,Z(l.position.z)-sz/2,sz,sz)}
+ mmc.fillStyle='#ff4d4d';for(const e of world.enemies){if(!e.userData.alive)continue;if(!mmBig&&Math.hypot(e.position.x-px,e.position.z-pz)>34)continue;if(mmBig)continue;mmc.beginPath();mmc.arc(X(e.position.x),Z(e.position.z),3,0,6.283);mmc.fill()}
+ mmc.save();mmc.translate(X(px),Z(pz));mmc.rotate(Math.atan2(-Math.cos(player.yaw),-Math.sin(player.yaw)));mmc.fillStyle='#c7f36b';mmc.strokeStyle='#10200a';mmc.lineWidth=1.5;const A=mmBig?9:7;mmc.beginPath();mmc.moveTo(A,0);mmc.lineTo(-A*.7,-A*.65);mmc.lineTo(-A*.7,A*.65);mmc.closePath();mmc.fill();mmc.stroke();mmc.restore()}
+if(mm)mm.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();mmBig=!mmBig;mm.classList.toggle('big',mmBig);mm.width=mm.height=mmBig?440:120;drawMap()});
 // ---- Lobby: el personaje elegido se muestra en 3D girando sobre la isla, junto al menú ----
 let lobby=true,lobbyT=0;
 const modeBtn=$('#btn-mode'),modeLbl=$('#mode-label');
@@ -73,7 +87,7 @@ $('#settings-close').addEventListener('click',()=>{pname=($('#set-name').value||
 // Modelos 3D realistas opcionales: si subes models/zane.glb, models/lyra.glb o models/bruno.glb, sustituyen al personaje básico
 async function loadCustomModels(){if(typeof fetch==='undefined')return;try{let loader=null;for(const c of CHARACTERS){const r=await fetch('./models/'+c.id+'.glb',{method:'HEAD'}).catch(()=>null);if(!r||!r.ok)continue;if(!loader){const m=await import('three/addons/loaders/GLTFLoader.js');loader=new m.GLTFLoader()}const g=await loader.loadAsync('./models/'+c.id+'.glb');g.scene.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});player.setCustomModel(c.id,g.scene)}}catch(e){console.warn('Modelos .glb no cargados:',e)}}
 loadCustomModels();
-function begin(){lobby=false;kills=0;player.gun.visible=true;closePanels();active=true;paused=false;player.setCharacter(charIndex);health=100;armor=player.character.armor;elapsed=0;gameClock=0;reloadUntil=0;fireHeld=false;player.reset();world.reset();fx.reset();fx.setWeaponLook(player.weaponIndex);aimBlend=0;player.group.visible=true;stopAim();start.classList.add('hidden');pause.classList.add('hidden');end.classList.add('hidden');hud.classList.remove('hidden');loadout.classList.add('hidden');$('#zone-warning').classList.add('hidden');setMsg(player.character.name+' · '+(world.teams?'Equipos: verdes contra rojos':'Todos contra todos')+' · busca suministros');updateHud()}
+function begin(){lobby=false;kills=0;player.gun.visible=true;closePanels();active=true;paused=false;player.setCharacter(charIndex);health=100;armor=player.character.armor;elapsed=0;gameClock=0;reloadUntil=0;fireHeld=false;player.reset();world.reset();world.spawnPlayer(player);camera.position.set(player.position.x,3.1,player.position.z+6.6);fx.reset();fx.setWeaponLook(player.weaponIndex);aimBlend=0;player.group.visible=true;stopAim();start.classList.add('hidden');pause.classList.add('hidden');end.classList.add('hidden');hud.classList.remove('hidden');loadout.classList.add('hidden');$('#zone-warning').classList.add('hidden');setMsg(player.character.name+' · '+(world.teams?'Equipos: verdes contra rojos':'Todos contra todos')+' · busca suministros');updateHud()}
 function finish(win){if(!active)return;active=false;fireHeld=false;stopAim();hud.classList.add('hidden');end.classList.remove('hidden');$('#end-title').textContent=win?'¡VICTORIA!':'HAS SIDO ELIMINADO';const gain=kills*25+Math.floor(elapsed/10)+(win?150:0);addXp(gain);$('#end-text').textContent=(win?'Eres el último superviviente de EGO ZNE.':'Has sido eliminado. Equípate y vuelve a intentarlo.')+' Eliminaciones: '+kills+' · +'+gain+' XP'}
 function damagePlayer(amount){if(!active)return;let rest=amount*player.character.dmgTaken;if(armor>0){const absorb=Math.min(armor,rest*.7);armor-=absorb;rest-=absorb}health=Math.max(0,health-rest);updateHud();if(health<=0)finish(false)}
 function reload(){if(!active||paused||reloadUntil>gameClock)return;const w=player.weapon;if(w.mag===w.max||w.reserve<=0){setMsg(w.reserve<=0?'Sin munición de reserva':'Cargador completo');return}reloadUntil=gameClock+(w.reloadT||1.25)*player.character.reloadMul;setMsg('Recargando...')}
@@ -84,26 +98,27 @@ function switchWeapon(){if(!active||paused)return;const w=player.switchWeapon();
 // El rayo sale en horizontal desde el pecho del jugador hacia donde mira (player.yaw), no desde la cámara:
 // la cámara está arriba y detrás, y su rayo central baja ~16° y se hundía en el suelo a pocos metros.
 const muzzlePos=new THREE.Vector3(),endPoint=new THREE.Vector3(),aimOrigin=new THREE.Vector3(),aimDir=new THREE.Vector3();
-const enemyMeshes=()=>world.enemies.filter(e=>e.userData.alive&&e.visible).flatMap(e=>e.children);
+const enemyMeshes=()=>world.enemies.filter(e=>e.userData.alive&&e.visible&&Math.hypot(e.position.x-player.position.x,e.position.z-player.position.z)<160).flatMap(e=>e.children);
 function shoot(){
  if(!active||paused||reloadUntil>gameClock)return;
  const w=player.weapon;
  if(gameClock-player.lastShot<w.rate)return;
+ if(player.sprinting){player.sprinting=false;syncStance()}
  if(w.mag<=0){if(w.reserve>0)reload();else setMsg('Sin balas ni reserva: busca munición');return}
  player.lastShot=gameClock;w.mag--;updateHud();
  player.group.updateMatrixWorld(true);
  world.enemies.forEach(e=>{if(e.userData.alive)e.updateMatrixWorld(true)});
  aimDir.set(-Math.sin(player.yaw),0,-Math.cos(player.yaw));
  // Apuntando: el rayo sale del mismo punto que la cámara (ojo del jugador), así que coincide con el centro de la retícula.
- if(aiming)aimOrigin.set(player.position.x+aimDir.x*.25,player.position.y+EYE_H,player.position.z+aimDir.z*.25);
- else aimOrigin.set(player.position.x,player.position.y+1.2,player.position.z);
+ if(aiming)aimOrigin.set(player.position.x+aimDir.x*.25,player.position.y+player.eyeH,player.position.z+aimDir.z*.25);
+ else aimOrigin.set(player.position.x,player.position.y+player.chestH,player.position.z);
  const spreadK=aiming?w.aimK:1;
  const wi=player.weaponIndex;fx.muzzle(wi,w.quiet);player.muzzle.getWorldPosition(muzzlePos);world.alertNear(player.position,w.quiet?8:32);
  let hitAny=false,killed=false,headshot=false;
  for(let p=0;p<w.pellets;p++){
   ray.set(aimOrigin,aimDir);ray.near=0;ray.far=w.range;
   if(w.spread){const sp=w.spread*spreadK,d=ray.ray.direction;d.x+=(Math.random()-.5)*2*sp;d.y+=(Math.random()-.5)*2*sp;d.z+=(Math.random()-.5)*2*sp;d.normalize()}
-  const eh=ray.intersectObjects(enemyMeshes(),false)[0],sh=ray.intersectObjects(world.solids,false)[0];
+  const eh=ray.intersectObjects(enemyMeshes(),false)[0],sh=world.hitSolids(ray.ray.origin,ray.ray.direction,w.range);
   let kind=null;
   if(eh&&(!sh||eh.distance<=sh.distance)){
    endPoint.copy(eh.point);kind='blood';hitAny=true;
@@ -111,7 +126,7 @@ function shoot(){
    const mult=Math.max(.15,1-Math.max(0,eh.distance-f[0])/(f[1]-f[0]));
    if(world.damageEnemy(owner,w.damage*mult*(isHead?1.5:1))){killed=true;kills++}
    if(isHead)headshot=true;
-  }else if(sh){endPoint.copy(sh.point);kind=sh.object.userData.kind||'dirt'}
+  }else if(sh){endPoint.copy(sh.point);kind=sh.kind||'dirt'}
   else ray.ray.at(w.range,endPoint);
   fx.tracer(muzzlePos,endPoint,wi);
   if(kind)fx.impact(endPoint,kind,wi);
@@ -147,16 +162,16 @@ const eFrom=new THREE.Vector3(),eTo=new THREE.Vector3();
 // Cada enemigo dispara a su objetivo (el jugador u otro enemigo hostil) solo si lo ve, no está en retirada ni aturdido. Contra el jugador: igual que antes.
 function enemyAttacks(dt){let killed=false;for(const e of world.enemies){const u=e.userData;if(!u.alive)continue;const d=e.position.distanceTo(player.position);u.cooldown-=dt;const tg=u.target;
  if(tg&&u.sees&&u.state!=='cover'&&u.stun<=0&&u.cooldown<=0){
-  if(tg==='player'){if(d<17){u.cooldown=1.5+Math.random()*1.2;const chance=d<7?.72:.42;const hit=Math.random()<chance;eFrom.set(e.position.x,1.25,e.position.z);eTo.set(player.position.x,1.2,player.position.z);if(!hit){eTo.x+=(Math.random()-.5)*3;eTo.y+=Math.random()*1.5-.4;eTo.z+=(Math.random()-.5)*3}fx.enemyTracer(eFrom,eTo);if(hit){damagePlayer(d<7?9:6);setMsg('¡Te están disparando!')}}}
+  if(tg==='player'){if(d<17){u.cooldown=1.5+Math.random()*1.2;const chance=(d<7?.72:.42)*[1,.75,.5][player.stance];const hit=Math.random()<chance;eFrom.set(e.position.x,1.25,e.position.z);eTo.set(player.position.x,player.chestH,player.position.z);if(!hit){eTo.x+=(Math.random()-.5)*3;eTo.y+=Math.random()*1.5-.4;eTo.z+=(Math.random()-.5)*3}fx.enemyTracer(eFrom,eTo);if(hit){damagePlayer(d<7?9:6);setMsg('¡Te están disparando!')}}}
   else if(tg.userData.alive){const dd=e.position.distanceTo(tg.position);if(dd<17){u.cooldown=1.5+Math.random()*1.2;const hit=Math.random()<(dd<7?.72:.42);eFrom.set(e.position.x,1.25,e.position.z);eTo.set(tg.position.x,1.2,tg.position.z);if(!hit){eTo.x+=(Math.random()-.5)*3;eTo.y+=Math.random()*1.5-.4;eTo.z+=(Math.random()-.5)*3}fx.enemyTracer(eFrom,eTo);if(hit){fx.impact(eTo,'blood',2);if(world.damageEnemy(tg,12,e))killed=true}}}
  }
  if(d<1.55){u.attack+=dt;if(u.attack>.8){u.attack=0;damagePlayer(5)}}else u.attack=0}
  if(killed){setMsg('¡Los enemigos se están matando entre ellos!');updateHud();if(world.enemies.every(x=>!x.userData.alive))finish(true)}}
-function updateZone(dt){const radius=world.zoneRadius;const dist=Math.hypot(player.position.x,player.position.z);const outside=dist>radius;$('#zone-warning').classList.toggle('hidden',!outside);if(outside){lastDamage+=dt;if(lastDamage>.65){lastDamage=0;damagePlayer(4);setMsg('¡Regresa a la zona segura!')}}else lastDamage=0;const left=Math.max(0,90-gameClock);$('#zone-time').textContent=`${String(Math.floor(left/60)).padStart(2,'0')}:${String(Math.floor(left%60)).padStart(2,'0')}`}
+function updateZone(dt){const radius=world.zoneRadius;const dist=Math.hypot(player.position.x,player.position.z);const outside=dist>radius;$('#zone-warning').classList.toggle('hidden',!outside);if(outside){lastDamage+=dt;if(lastDamage>.65){lastDamage=0;damagePlayer(4);setMsg('¡Regresa a la zona segura!')}}else lastDamage=0;const left=Math.max(0,world.zoneTotal-gameClock);$('#zone-time').textContent=`${String(Math.floor(left/60)).padStart(2,'0')}:${String(Math.floor(left%60)).padStart(2,'0')}`}
 function toMenu(){lobby=true;active=false;paused=false;fireHeld=false;stopAim();hud.classList.add('hidden');pause.classList.add('hidden');end.classList.add('hidden');loadout.classList.add('hidden');start.classList.remove('hidden')}
 $('#to-menu').onclick=toMenu;$('#to-menu2').onclick=toMenu;$('#start-button').onclick=begin;$('#again').onclick=begin;$('#restart').onclick=begin;$('#resume').onclick=()=>{paused=false;pause.classList.add('hidden')};$('#pause').onclick=()=>{if(active){paused=true;fireHeld=false;pause.classList.remove('hidden')}};
-$('#fire').addEventListener('pointerdown',e=>{e.preventDefault();fireHeld=true;shoot()});['pointerup','pointercancel','pointerleave'].forEach(ev=>$('#fire').addEventListener(ev,()=>fireHeld=false));$('#jump').addEventListener('pointerdown',e=>{e.preventDefault();player.jump()});$('#reload').addEventListener('pointerdown',e=>{e.preventDefault();reload()});$('#switch').addEventListener('pointerdown',e=>{e.preventDefault();switchWeapon()});if(aimBtn)aimBtn.addEventListener('pointerdown',e=>{e.preventDefault();toggleAim()});$('#medkit').addEventListener('pointerdown',e=>{e.preventDefault();if(active&&health<100){health=Math.min(100,health+25);updateHud();setMsg('Vendaje aplicado: +25 de vida')}else setMsg('Tu vida ya está completa')});
-addEventListener('keydown',e=>{if(e.code==='Space')player.jump();if(e.code==='KeyR')reload();if(e.code==='KeyQ')switchWeapon();if(e.code==='KeyE')toggleAim();if(e.code==='KeyB')openLoadout();if(e.code==='Escape'&&anyPanel()){closePanels();return}if(e.code==='Escape'&&active){if(!loadout.classList.contains('hidden'))closeLoadout();else{paused=!paused;pause.classList.toggle('hidden',!paused)}}});
+$('#fire').addEventListener('pointerdown',e=>{e.preventDefault();fireHeld=true;shoot()});['pointerup','pointercancel','pointerleave'].forEach(ev=>$('#fire').addEventListener(ev,()=>fireHeld=false));$('#jump').addEventListener('pointerdown',e=>{e.preventDefault();player.jump();syncStance()});$('#reload').addEventListener('pointerdown',e=>{e.preventDefault();reload()});$('#switch').addEventListener('pointerdown',e=>{e.preventDefault();switchWeapon()});if(aimBtn)aimBtn.addEventListener('pointerdown',e=>{e.preventDefault();toggleAim()});$('#medkit').addEventListener('pointerdown',e=>{e.preventDefault();if(active&&health<100){health=Math.min(100,health+25);updateHud();setMsg('Vendaje aplicado: +25 de vida')}else setMsg('Tu vida ya está completa')});
+addEventListener('keydown',e=>{if(e.code==='Space'){player.jump();syncStance()}if(e.code==='ShiftLeft'||e.code==='ShiftRight')doStance('sprint');if(e.code==='KeyC')doStance('crouch');if(e.code==='KeyZ')doStance('prone');if(e.code==='KeyR')reload();if(e.code==='KeyQ')switchWeapon();if(e.code==='KeyE')toggleAim();if(e.code==='KeyB')openLoadout();if(e.code==='Escape'&&anyPanel()){closePanels();return}if(e.code==='Escape'&&active){if(!loadout.classList.contains('hidden'))closeLoadout();else{paused=!paused;pause.classList.toggle('hidden',!paused)}}});
 const clock=new THREE.Clock(),UP=new THREE.Vector3(0,1,0),camPos=new THREE.Vector3(),lookPos=new THREE.Vector3(),eyePos=new THREE.Vector3(),farPos=new THREE.Vector3();
 function loop(){requestAnimationFrame(loop);const dt=Math.min(clock.getDelta(),.04);
  // Zoom suave: mezcla 0 (tercera persona) → 1 (mira telescópica). El modelo del jugador se oculta al apuntar.
@@ -164,9 +179,9 @@ function loop(){requestAnimationFrame(loop);const dt=Math.min(clock.getDelta(),.
  const fov=BASE_FOV/(1+(aimZoom-1)*aimBlend);if(Math.abs(camera.fov-fov)>.01){camera.fov=fov;camera.updateProjectionMatrix()}
  player.group.visible=aimBlend<.6;player.lookScale=aiming?.3:1;
  const showScope=aimBlend>.7;if(showScope!==scopeShown){scopeShown=showScope;if(scopeEl)scopeEl.classList.toggle('hidden',!showScope);if(crossEl)crossEl.classList.toggle('hidden',showScope)}
- if(lobby){lobbyT+=dt;const portrait=innerWidth<innerHeight;player.gun.visible=false;player.group.position.set(stage.x,0,stage.z);player.group.rotation.y=Math.PI+Math.sin(lobbyT*.5)*.35;camPos.set(stage.x,portrait?1.5:1.35,stage.z+(portrait?4.6:3.5));lookPos.set(stage.x,portrait?.95:1.05,stage.z);camera.position.lerp(camPos,1-Math.pow(.001,dt));camera.lookAt(lookPos)}
- if(active&&!paused){gameClock+=dt;controls.update();aimMove.set(controls.move.x,controls.move.y).multiplyScalar(aiming?.45:1);player.update(dt,aimMove);if(fireHeld&&player.weapon.auto)shoot();if(reloadUntil>0&&gameClock>=reloadUntil)completeReload();world.update(dt,player,gameClock);enemyAttacks(dt);collectLoot();updateZone(dt);camPos.set(0,3.1,6.6).applyAxisAngle(UP,player.yaw).add(player.position);lookPos.copy(player.position);lookPos.y+=1.2;
-  if(aimBlend>0){const fx_=-Math.sin(player.yaw),fz_=-Math.cos(player.yaw);eyePos.set(player.position.x+fx_*.25,player.position.y+EYE_H,player.position.z+fz_*.25);farPos.set(eyePos.x+fx_*30,eyePos.y,eyePos.z+fz_*30);camPos.lerp(eyePos,aimBlend);lookPos.lerp(farPos,aimBlend)}
+ if(lobby){lobbyT+=dt;const portrait=innerWidth<innerHeight;player.gun.visible=false;player.relaxed=true;player.animate(dt,0);player.group.position.set(stage.x,0,stage.z);player.group.rotation.y=Math.PI+Math.sin(lobbyT*.5)*.35;camPos.set(stage.x,portrait?1.5:1.35,stage.z+(portrait?4.6:3.5));lookPos.set(stage.x,portrait?.95:1.05,stage.z);camera.position.lerp(camPos,1-Math.pow(.001,dt));camera.lookAt(lookPos)}
+ if(!lobby)player.relaxed=false;if(active&&!paused){gameClock+=dt;controls.update();aimMove.set(controls.move.x,controls.move.y).multiplyScalar(aiming?.45:1);{const _px=player.position.x,_pz=player.position.z;player.update(dt,aimMove);world.constrain(player.position,_px,_pz)}syncStance();if(fireHeld&&player.weapon.auto)shoot();if(reloadUntil>0&&gameClock>=reloadUntil)completeReload();world.update(dt,player,gameClock);enemyAttacks(dt);collectLoot();updateZone(dt);camPos.set(0,2.4+.7*player.eyeH/1.62,6.6).applyAxisAngle(UP,player.yaw).add(player.position);lookPos.copy(player.position);lookPos.y+=player.chestH;
+  if(aimBlend>0){const fx_=-Math.sin(player.yaw),fz_=-Math.cos(player.yaw);eyePos.set(player.position.x+fx_*.25,player.position.y+player.eyeH,player.position.z+fz_*.25);farPos.set(eyePos.x+fx_*30,eyePos.y,eyePos.z+fz_*30);camPos.lerp(eyePos,aimBlend);lookPos.lerp(farPos,aimBlend)}
   if(aimBlend>.97)camera.position.copy(camPos);else camera.position.lerp(camPos,1-Math.pow(.001,dt));
   camera.lookAt(lookPos);}{const fp=lobby?stage:player.position;sun.target.position.set(fp.x,0,fp.z);sun.position.set(fp.x+SUN_OFF.x,SUN_OFF.y,fp.z+SUN_OFF.z)}
  fx.update(dt);mmT+=dt;if(mmT>.1){mmT=0;if(active)drawMap()}renderer.render(scene,camera)}
