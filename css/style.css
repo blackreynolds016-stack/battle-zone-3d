@@ -69,3 +69,14 @@
 .lo-row{display:flex;gap:8px;align-items:center}
 @media(max-height:460px){.lb-side{width:68px;height:68px;font-size:10px}.lb-side svg{width:28px;height:28px}.lb-ico{width:52px;height:34px;background-size:416px 138px}.lb-brand{display:none}.lb-profile{min-width:220px}.lb-avatar{width:44px;height:44px}.lb-gear svg{width:44px;height:44px}}
 @media(orientation:portrait){.screen.side{place-items:end center;padding:12px}.lb-left{top:auto;bottom:130px;transform:none}}
+
+/* Botones de postura: correr / agacharse / acostarse */
+.stance{width:56px;height:56px;font-size:7px;position:absolute}
+.stance.on{background:linear-gradient(180deg,#d6ff7a,#8bc22e);color:#10200a;border-color:#fff;box-shadow:0 0 14px #c7f36b99}
+.sprint{left:42px;bottom:182px}
+.crouch{right:42px;bottom:188px}
+.prone{right:110px;bottom:210px}
+@media(max-height:400px){.stance{width:50px;height:50px}.sprint{bottom:172px}.crouch{bottom:182px}.prone{bottom:200px}}
+
+#minimap{pointer-events:auto;touch-action:manipulation}
+#minimap.big{left:50%!important;top:50%!important;right:auto!important;bottom:auto!important;transform:translate(-50%,-50%);width:min(86vh,86vw)!important;height:min(86vh,86vw)!important;z-index:7;border:2px solid #fff8;border-radius:12px;box-shadow:0 0 0 100vmax rgba(0,0,0,.55)}
