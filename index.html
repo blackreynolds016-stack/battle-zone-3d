@@ -38,6 +38,9 @@
     <label class="set-row">SALTO EN PARACAÍDAS<select id="set-drop"><option value="1">Sí</option><option value="0">No (empezar en el suelo)</option></select></label>
     <label class="set-row">AYUDA DE PUNTERÍA<select id="set-assist"><option value="1">Activada</option><option value="0">Desactivada</option></select></label>
     <label class="set-row">CORRER AUTOMÁTICO<select id="set-auto"><option value="1">Activado</option><option value="0">Desactivado</option></select></label>
+    <label class="set-row">RECOGER OBJETOS<select id="set-pick"><option value="auto">Automático (al acercarte)</option><option value="manual">Con el botón RECOGER</option></select></label>
+    <label class="set-row">VIBRACIÓN AL PULSAR<select id="set-vib"><option value="1">Activada</option><option value="0">Desactivada</option></select></label>
+    <label class="set-row">BOTONES EN PANTALLA<button id="set-layout" class="secondary" type="button">COLOCAR Y AJUSTAR TAMAÑO</button></label>
     <label class="set-row">SENSIBILIDAD DE CÁMARA <b id="set-sens-val">1.0</b><input id="set-sens" type="range" min="50" max="200" value="100"></label>
     <button id="settings-close" class="primary">GUARDAR</button></div></section>
 
@@ -64,10 +67,12 @@
     <button id="reload" class="action reload"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg><span>RECARGAR</span></button>
     <button id="medkit" class="action medkit"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4h4v6h6v4h-6v6h-4v-6H4v-4h6z" fill="currentColor"/></svg><span>+ VIDA</span></button>
     <button id="switch" class="action switch"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg><span>ARMA</span></button>
+    <button id="interact" class="action interact hidden" aria-label="Recoger"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11M8 10l4 4 4-4M5 19h14"/></svg><span id="interact-label">RECOGER</span></button>
     <button id="aim" class="action aim hidden"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 2v6M12 16v6M2 12h6M16 12h6"/></svg><span id="aim-label">APUNTAR</span></button>
     <button id="sprint" class="action stance sprint" aria-label="Correr"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="5" r="2"/><path d="M5 21l4-6 3 2 2-5-3-2-3 2M14 10l3 3 3-1M9 15l-2-2"/></svg><span>CORRER</span></button>
     <button id="crouch" class="action stance crouch" aria-label="Agacharse"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="M9 21v-5l3-2 3 2v5M12 9v5M8 11l4-2 4 2"/></svg><span>AGACHAR</span></button>
     <button id="prone" class="action stance prone" aria-label="Acostarse"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="13" r="2"/><path d="M8 14h12M12 14l-2 4M17 14l1 4M3 20h18"/></svg><span>ACOSTAR</span></button>
+    <div id="layout-bar" class="hidden"><b>ARRASTRA LOS BOTONES</b><label>TAMAÑO<input id="layout-size" type="range" min="70" max="140" value="100"></label><button id="layout-reset" type="button">RESTABLECER</button><button id="layout-done" type="button">LISTO</button></div>
     <button id="pause" class="pause">Ⅱ</button>
     <button id="bag" class="pause bag" aria-label="Mochila"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7V6a4 4 0 0 1 8 0v1M6 8h12a1 1 0 0 1 1 1v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9a1 1 0 0 1 1-1zM9 14h6"/></svg></button>
   </div>
