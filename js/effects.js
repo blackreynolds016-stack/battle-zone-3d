@@ -57,6 +57,14 @@ export function createEffects(scene,player){
   for(let i=0;i<n;i++){const p=parts[pI];pI=(pI+1)%PN;p.m.material=(i===0&&kind!=='blood')?pmats.spark:pmats[K];p.m.position.copy(point);p.v.set((Math.random()-.5)*4,1.2+Math.random()*3,(Math.random()-.5)*4);p.max=p.life=.28+Math.random()*.25;p.size=.05+Math.random()*.05;p.on=true;p.m.visible=true;p.m.scale.setScalar(p.size)}
  }
 
+ // --- Polvo al correr y al aterrizar (pool de bolitas que crecen y se desvanecen) ---
+ const DN=14,dusts=[],dustGeo=new THREE.SphereGeometry(.5,6,4);
+ for(let i=0;i<DN;i++){const m=new THREE.Mesh(dustGeo,new THREE.MeshBasicMaterial({color:0xb5a583,transparent:true,depthWrite:false,opacity:.4}));m.visible=false;scene.add(m);dusts.push({m,on:false,age:0,max:.6,size:.5,vx:0,vz:0})}
+ let dI=0;
+ function dust(x,z,power=4){const n=power>6?5:1;
+  for(let i=0;i<n;i++){const d=dusts[dI];dI=(dI+1)%DN;const a=Math.random()*6.28,s=n>1?.8+power*.18:.35;
+   d.m.position.set(x+Math.cos(a)*.25,.14,z+Math.sin(a)*.25);d.vx=Math.cos(a)*s;d.vz=Math.sin(a)*s;d.age=0;d.max=.45+Math.random()*.25;d.size=n>1?.55+power*.05:.3;d.on=true;d.m.visible=true;d.m.scale.setScalar(.1)}}
+
  // --- Retroceso y aspecto del arma ---
  const g=player.gun,base={z:g.position.z};let kick=0,kickStyle=STYLES[0];
  function setWeaponLook(i){const s=STYLES[i]||STYLES[0];kickStyle=s;g.scale.set(s.look[0],s.look[1],s.look[2]);flashMat.color.setHex(s.flash)}
@@ -72,8 +80,9 @@ export function createEffects(scene,player){
    const seg=Math.max(.02,head-tail);_a.copy(t.from).addScaledVector(t.dir,(head+tail)/2);t.m.position.copy(_a);_b.copy(_a).add(t.dir);t.m.lookAt(_b);t.m.scale.set(t.w,t.w,seg)}
   for(const p of parts){if(!p.on)continue;p.life-=dt;if(p.life<=0||p.m.position.y<0){p.on=false;p.m.visible=false;continue}p.v.y-=11*dt;p.m.position.addScaledVector(p.v,dt);p.m.scale.setScalar(p.size*(p.life/p.max))}
   for(const f of puffs){if(!f.on)continue;f.age+=dt;const k=f.age/f.max;if(k>=1){f.on=false;f.m.visible=false;continue}f.m.scale.setScalar(f.size*(.4+k*.9));f.m.material.opacity=.85*(1-k)}
+  for(const d of dusts){if(!d.on)continue;d.age+=dt;const k=d.age/d.max;if(k>=1){d.on=false;d.m.visible=false;continue}d.m.position.x+=d.vx*dt*(1-k);d.m.position.z+=d.vz*dt*(1-k);d.m.position.y+=.5*dt;d.m.scale.setScalar(d.size*(.25+k*.85));d.m.material.opacity=.4*(1-k)}
  }
- function reset(){flash.visible=false;kick=0;g.position.z=base.z;g.rotation.x=0;for(const t of tracers){t.on=false;t.m.visible=false}for(const p of parts){p.on=false;p.m.visible=false}for(const f of puffs){f.on=false;f.m.visible=false}}
+ function reset(){flash.visible=false;kick=0;g.position.z=base.z;g.rotation.x=0;for(const t of tracers){t.on=false;t.m.visible=false}for(const p of parts){p.on=false;p.m.visible=false}for(const f of puffs){f.on=false;f.m.visible=false}for(const d of dusts){d.on=false;d.m.visible=false}}
  setWeaponLook(0);
- return{muzzle,tracer:shotTracer,enemyTracer,impact:shotImpact,setWeaponLook,update,reset}
+ return{dust,muzzle,tracer:shotTracer,enemyTracer,impact:shotImpact,setWeaponLook,update,reset}
 }

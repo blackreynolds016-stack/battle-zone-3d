@@ -112,6 +112,8 @@ export class Player{
    // el arma es un grupo fijo (this.gun) cuyo contenido cambia según el arma y sus accesorios (buildGun); this.muzzle es la boca del cañón
    const gun=new THREE.Group();gun.position.set(.27,1.12,-.37);this.group.add(gun);this.gun=gun;this.muzzle=new THREE.Object3D();this.muzzle.position.set(0,.01,-1.1);gun.add(this.muzzle);this.custom={};
    this.ranT=0;this.idleT=0;this.autoT=0;this.autoRun=true;this.running=false;this.dropping=false;this.stance=0;this.sb=0;this.sprinting=false;this.sprB=0;this.ph=0;this.mv=0;this.relaxed=false;this.t=0;
+   // Movimiento con inercia: velocidad horizontal real, pose en el aire, impacto al aterrizar y polvo (main.js lo consume)
+   this.vx=0;this.vz=0;this.lx=0;this.lz=0;this.air=0;this.landT=0;this.landImpact=0;this.runDust=false;this.dustT=0;this.jumpBuf=0;
    const chute=this.chute=new THREE.Group();chute.visible=false;this.group.add(chute);
    const cm=new THREE.MeshStandardMaterial({color:0xe8e4d8,roughness:.8,side:THREE.DoubleSide}),cl=new THREE.MeshBasicMaterial({color:0x222222});
    const dome=new THREE.Mesh(new THREE.SphereGeometry(2.4,16,8,0,Math.PI*2,0,Math.PI/2),cm);dome.position.y=3.6;dome.scale.y=.7;chute.add(dome);
@@ -135,21 +137,24 @@ export class Player{
   toggleStance(s){this.stance=this.stance===s?0:s;this.sprinting=false;return this.stance}
   toggleSprint(){if(this.stance!==0)return false;this.sprinting=!this.sprinting;return this.sprinting}
   // Anima el cuerpo: caminar/correr, respirar, agacharse y acostarse. spd = velocidad real (m/s)
-  animate(dt,spd=0){this.t+=dt;const d=this.stance-this.sb;this.sb+=Math.sign(d)*Math.min(Math.abs(d),dt*4.5);
+  animate(dt,spd=0){this.t+=dt;const d=this.stance-this.sb;this.sb+=Math.sign(d)*Math.min(Math.abs(d),dt*Math.max(1.6,Math.abs(d)*8));this.landT=Math.max(0,this.landT-dt*4.5);this.air+=((this.grounded===false?1:0)-this.air)*Math.min(1,dt*10);
    const c=Math.min(this.sb,1),p=Math.max(0,Math.min(this.sb-1,1)),cs=c*(1-p);
    this.mv+=((Math.min(1,spd/6))-this.mv)*Math.min(1,dt*10);const mv=this.mv;
    this.sprB+=((this.running&&mv>.15?1:0)-this.sprB)*Math.min(1,dt*8);const sp=this.sprB;
-   this.ph+=dt*(5+8*mv+4*sp)*(mv>.02?1:0);const ph=this.ph;
-   const amp=mv*(.7-.3*c+.25*sp)*(1-p),rig=this.rig;
-   rig.rotation.x=-Math.PI/2*p;rig.position.y=-.37*cs+.22*p;rig.position.z=.144*cs+.9*p;
+   this.ph+=dt*(5+8*mv+4*sp)*(1-.45*Math.max(0,this.sb-1))*(mv>.02?1:0);const ph=this.ph;
+   const ar=this.air,ld=this.landT; // ar = pose en el aire, ld = amortiguación al aterrizar
+   const amp=mv*(.7-.3*c+.25*sp)*(1-p)*(1-.8*ar),rig=this.rig;
+   rig.rotation.x=-Math.PI/2*p;rig.rotation.z=Math.sin(ph)*.07*mv*p;rig.position.y=-.37*cs+.22*p-.3*ld*(1-p);rig.position.z=.144*cs+.9*p;
    this.legs.forEach((L,i)=>{const o=i?Math.PI:0,s=Math.sin(ph+o),k=Math.cos(ph+o);
-    L.hip.rotation.x=1.25*cs+s*amp+Math.sin(ph+o)*.22*mv*p;L.knee.rotation.x=-1.9*cs-Math.max(0,k)*amp*1.2-Math.max(0,k)*.3*mv*p});
-   this.torso.rotation.x=-.05-.25*cs-.28*sp;this.torso.position.y=.92+Math.sin(this.t*2.2)*.006;
+    L.hip.rotation.x=1.25*cs+s*amp+Math.sin(ph+o)*.22*mv*p+ar*(i?.35:-.7)*(1-p)+ld*.9*(1-p);L.knee.rotation.x=-1.9*cs-Math.max(0,k)*amp*1.2-Math.max(0,k)*.3*mv*p-ar*(i?.5:1.1)*(1-p)-ld*1.5*(1-p)});
+   this.torso.rotation.x=-.05-.25*cs-.28*sp-.3*ld*(1-p);this.torso.position.y=.92+Math.sin(this.t*2.2)*.006;
    this.head.rotation.x=.12*sp+Math.sin(this.t*1.1)*.01;
    const [aL,aR]=this.arms,g=this.relaxed?0:1-sp,sw=Math.sin(ph)*(this.relaxed?.55:1.0)*Math.max(mv,.0)*1.1;
    const lerp=(a,b,t)=>a+(b-a)*t;
-   aR.sh.rotation.set(lerp(lerp(sw,.45,g),2.9,p),0,this.relaxed?.08:0);aR.el.rotation.x=lerp(lerp(.15+Math.max(0,sw)*.4,.9,g),.3,p);
-   aL.sh.rotation.set(lerp(lerp(-sw,1.1,g),2.9,p),0,lerp(this.relaxed?-.08:0,.25,g));aL.el.rotation.x=lerp(lerp(.15+Math.max(0,-sw)*.4,.35,g),.3,p);
+   // acostado: los brazos se alternan para arrastrarse
+   const cr=Math.sin(ph)*.45*mv;
+   aR.sh.rotation.set(lerp(lerp(sw,.45,g),2.9+cr,p),0,this.relaxed?.08:0);aR.el.rotation.x=lerp(lerp(.15+Math.max(0,sw)*.4,.9,g),.3+Math.max(0,cr)*1.5,p);
+   aL.sh.rotation.set(lerp(lerp(-sw,1.1,g),2.9-cr,p),0,lerp(this.relaxed?-.08:0,.25,g));aL.el.rotation.x=lerp(lerp(.15+Math.max(0,-sw)*.4,.35,g),.3+Math.max(0,-cr)*1.5,p);
    // el arma sigue a las manos según la postura
    const gp=this.gun.position,u=this.sb<=1?this.sb:1,q=Math.max(0,this.sb-1);
    gp.set(.27+(-.0)*u+.03*q,1.12-.34*u-.48*q-.08*sp,-.37-.08*u-.55*q);this.gun.rotation.x=.45*sp;
@@ -189,8 +194,8 @@ export class Player{
   // Recoger un arma nueva: queda en tu poder, con su cargador lleno y su munición inicial, y pasa a ser el arma activa
   giveWeapon(i){const w=this.weapons[i];w.owned=true;w.mag=w.max;w.reserve=w.start.reserve;this.weaponIndex=i;this.buildGun();return w}
   selectWeapon(i){if(!this.weapons[i]||!this.weapons[i].owned)return false;this.weaponIndex=i;this.buildGun();return true}
-  reset(){this.group.position.set(0,0,15);this.group.rotation.set(0,Math.PI,0);this.yaw=Math.PI;this.vy=0;this.grounded=true;this.stance=0;this.sb=0;this.sprinting=false;this.running=false;this.ranT=0;this.idleT=0;this.autoT=0;this.dropping=false;this.chute.visible=false;this.sprB=0;this.weaponIndex=0;this.inv={};this.weapons.forEach((w,i)=>{w.owned=i<3;w.att={scope:null,mag:null,grip:null,muzzle:null};this.applyStats(w);w.mag=w.start.mag;w.reserve=w.start.reserve});this.lastShot=0;this.buildGun()}
-  jump(){if(this.dropping)return;if(this.stance!==0){this.stance=0;return}if(this.grounded){this.vy=7.2;this.grounded=false}}
+  reset(){this.group.position.set(0,0,15);this.group.rotation.set(0,Math.PI,0);this.yaw=Math.PI;this.vy=0;this.grounded=true;this.vx=0;this.vz=0;this.air=0;this.landT=0;this.landImpact=0;this.jumpBuf=0;this.dustT=0;this.stance=0;this.sb=0;this.sprinting=false;this.running=false;this.ranT=0;this.idleT=0;this.autoT=0;this.dropping=false;this.chute.visible=false;this.sprB=0;this.weaponIndex=0;this.inv={};this.weapons.forEach((w,i)=>{w.owned=i<3;w.att={scope:null,mag:null,grip:null,muzzle:null};this.applyStats(w);w.mag=w.start.mag;w.reserve=w.start.reserve});this.lastShot=0;this.buildGun()}
+  jump(){if(this.dropping)return;if(this.stance!==0){this.stance=0;return}if(this.grounded){this.vy=7.2;this.grounded=false}else this.jumpBuf=.12}
   // Cambia al siguiente arma que tengas (las que aún no has recogido se saltan)
   switchWeapon(){let i=this.weaponIndex;for(let k=0;k<this.weapons.length;k++){i=(i+1)%this.weapons.length;if(this.weapons[i].owned)break}this.weaponIndex=i;this.buildGun();return this.weapon}
   update(dt,input){const forward=new THREE.Vector3(-Math.sin(this.yaw),0,-Math.cos(this.yaw)),right=new THREE.Vector3(Math.cos(this.yaw),0,-Math.sin(this.yaw));const dir=right.multiplyScalar(input.x).add(forward.multiplyScalar(input.y));if(dir.lengthSq()>1)dir.normalize();
@@ -204,10 +209,22 @@ export class Player{
     const dive=input.y>.6,v=dive?16:9*Math.min(1,dir.length()),fall=dive?15:6.5;
     this.group.position.addScaledVector(dir,v*dt);this.group.position.y-=fall*dt;if(dir.lengthSq()>.01)this.group.rotation.y=this.yaw;
     this.chute.visible=this.group.position.y>3;
-    if(this.group.position.y<=0){this.group.position.y=0;this.vy=0;this.grounded=true;this.dropping=false;this.chute.visible=false}
+    if(this.group.position.y<=0){this.group.position.y=0;this.vy=0;this.grounded=true;this.dropping=false;this.chute.visible=false;this.landT=.7;this.landImpact=8}
     this.group.position.x=THREE.MathUtils.clamp(this.group.position.x,-118,118);this.group.position.z=THREE.MathUtils.clamp(this.group.position.z,-118,118);
+    this.vx=0;this.vz=0;this.lx=this.group.position.x;this.lz=this.group.position.z;
     this.animate(dt,dir.length()*6);return}
-   const v=this.speed*STANCE.speed[this.stance]*(this.running?STANCE.sprint:1);
-   this.group.position.addScaledVector(dir,v*dt);if(dir.lengthSq()>.01)this.group.rotation.y=this.yaw;this.vy-=19*dt;this.group.position.y+=this.vy*dt;if(this.group.position.y<=0){this.group.position.y=0;this.vy=0;this.grounded=true}this.group.position.x=THREE.MathUtils.clamp(this.group.position.x,-118,118);this.group.position.z=THREE.MathUtils.clamp(this.group.position.z,-118,118);
-   this.animate(dt,dir.length()*v)}
+   const pp=this.group.position;
+   // Si algo (pared, roca) empujó al jugador hacia atrás después de moverse (world.constrain), se descuenta de la velocidad: así no "acumula" empuje contra la pared
+   if(dt>1e-4&&Math.abs(pp.x-this.lx)<3&&Math.abs(pp.z-this.lz)<3){this.vx+=(pp.x-this.lx)/dt*.8;this.vz+=(pp.z-this.lz)/dt*.8}
+   // Aceleración y frenado progresivos (en el aire casi no se corrige: conserva el impulso)
+   const v=this.speed*STANCE.speed[this.stance]*(this.running?STANCE.sprint:1),gr=this.grounded!==false,moving=dir.lengthSq()>.01;
+   const tx=dir.x*v,tz=dir.z*v,dx=tx-this.vx,dz=tz-this.vz,dl=Math.hypot(dx,dz),md=(gr?(moving?34:42):6)*dt;
+   if(dl>md){this.vx+=dx/dl*md;this.vz+=dz/dl*md}else{this.vx=tx;this.vz=tz}
+   pp.x+=this.vx*dt;pp.z+=this.vz*dt;if(moving)this.group.rotation.y=this.yaw;
+   if(this.jumpBuf>0)this.jumpBuf-=dt;
+   this.vy-=19*dt;pp.y+=this.vy*dt;
+   if(pp.y<=0){const imp=-this.vy;if(!gr&&imp>4){this.landT=Math.min(1,imp/12);this.landImpact=imp;this.vx*=.7;this.vz*=.7}pp.y=0;this.vy=0;this.grounded=true;if(this.jumpBuf>0&&this.stance===0){this.jumpBuf=0;this.vy=7.2;this.grounded=false}}else this.grounded=false;
+   pp.x=THREE.MathUtils.clamp(pp.x,-118,118);pp.z=THREE.MathUtils.clamp(pp.z,-118,118);this.lx=pp.x;this.lz=pp.z;
+   if(this.running&&this.grounded){this.dustT+=dt;if(this.dustT>.26){this.dustT=0;this.runDust=true}}else this.dustT=0;
+   this.animate(dt,Math.hypot(this.vx,this.vz))}
 }
