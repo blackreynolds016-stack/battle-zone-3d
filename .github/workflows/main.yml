@@ -29,7 +29,10 @@ jobs:
       - name: Preparar archivos del juego
         uses: actions/upload-pages-artifact@v3
         with:
+          name: sitio-${{ github.run_id }}-${{ github.run_attempt }}
           path: .
       - name: Publicar Battle Zone 3D
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: sitio-${{ github.run_id }}-${{ github.run_attempt }}
