@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {skinFor,crownTex} from './skins.js';
 
 // ---------- Accesorios ----------
 // slot = dónde se instala. Cada arma admite solo algunos slots (ver "slots" en WEAPONS).
@@ -14,8 +15,8 @@ export const SLOTS=[['scope','MIRA'],['mag','CARGADOR'],['grip','EMPUÑADURA'],[
 // ---------- Personajes jugables ----------
 // speed: velocidad · armor: escudo inicial · reloadMul: multiplicador del tiempo de recarga · dmgTaken: multiplicador del daño recibido
 export const CHARACTERS=[
- {id:'zane',name:'ZANE',role:'SOLDADO',desc:'Equilibrado en todo',speed:5.4,armor:25,reloadMul:1,dmgTaken:1,pack:1,extras:['hairSpike','mask','trim','pockets','knees'],colors:{uniform:0x16161c,dark:0x0c0c10,skin:0xcf9e7e,boot:0xf0f0f4,accent:0xb04cff,hair:0xf2f2f7,pants:0x3b3f3a}},
- {id:'lyra',name:'LYRA',role:'EXPLORADORA',desc:'Rápida y recarga veloz, sin escudo inicial',speed:6.2,armor:0,reloadMul:.75,dmgTaken:1,pack:.8,extras:['ponytail','mask','trim'],colors:{uniform:0x241638,dark:0x0e0c14,skin:0xe3ae8c,boot:0x1b1a24,accent:0xc65cff,hair:0x5a2fb0,pants:0x15141c}},
+ {id:'zane',name:'ZANE',role:'SOLDADO',desc:'Equilibrado en todo',speed:5.4,armor:25,reloadMul:1,dmgTaken:1,pack:1,extras:['hairSpike','mask','trim','pockets','knees','decals','chain','collar'],colors:{uniform:0x16161c,dark:0x0c0c10,skin:0xcf9e7e,boot:0xf0f0f4,accent:0xb04cff,hair:0xf2f2f7,pants:0x3b3f3a}},
+ {id:'lyra',name:'LYRA',role:'EXPLORADORA',desc:'Rápida y recarga veloz, sin escudo inicial',speed:6.2,armor:0,reloadMul:.75,dmgTaken:1,pack:.8,extras:['ponytail','mask','trim','decals','chain','collar'],colors:{uniform:0x241638,dark:0x0e0c14,skin:0xe3ae8c,boot:0x1b1a24,accent:0xc65cff,hair:0x5a2fb0,pants:0x15141c}},
  {id:'bruno',name:'BRUNO',role:'TANQUE',desc:'Lento pero resistente: +escudo y -15 % de daño recibido',speed:4.8,armor:60,reloadMul:1.1,dmgTaken:.85,pack:1.25,extras:['helmet','vest','shoulders','knees'],colors:{uniform:0x3a404c,dark:0x1a1d24,skin:0x8a5a3c,boot:0x11151b,accent:0xffc933,hair:0x15151a,pants:0x2b303a}}
 ];
 // Posturas: 0 de pie · 1 agachado · 2 acostado. Altura de ojos, de pecho (origen de disparo) y multiplicador de velocidad
@@ -67,7 +68,7 @@ export class Player{
    this.weapons=WEAPONS.map(d=>{const w={...d,falloff:[...d.falloff],slots:[...d.slots]};w.base={max:w.max,spread:w.spread,zoom:w.zoom,aimK:w.aimK,range:w.range,damage:w.damage};w.start={mag:w.mag,reserve:w.reserve};w.att={scope:null,mag:null,grip:null,muzzle:null};w.quiet=false;return w});
    this.inv={};this.lastShot=0;this.buildModel();scene.add(this.group)}
   buildModel(){const M=(r=.82,m=0)=>new THREE.MeshStandardMaterial({color:0x888888,roughness:r,metalness:m});
-   const mats=this.mats={uniform:M(.62,.05),dark:M(.75,.1),skin:M(.6),boot:M(.8),accent:M(.35,.3),hair:M(.85),pants:M(.85)};const {uniform,dark,skin,boot,accent,hair,pants}=mats;
+   const mats=this.mats={uniform:M(.62,.05),dark:M(.75,.1),skin:M(.6),boot:M(.8),accent:M(.35,.3),hair:M(.85),pants:M(.85),metal:M(.3,.9)};mats.metal.color.setHex(0xc9ced6);const {uniform,dark,skin,boot,accent,hair,pants,metal}=mats;
    const rig=this.rig=new THREE.Group();this.group.add(rig);const parts=this.bodyParts=[];
    const mk=(geo,ma,par,x,y,z)=>{const o=new THREE.Mesh(geo,ma);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;par.add(o);parts.push(o);return o};
    const piv=(par,x,y,z)=>{const g=new THREE.Group();g.position.set(x,y,z);par.add(g);return g};
@@ -87,6 +88,8 @@ export class Player{
    const trim=E.trim=piv(torso,0,0,0);for(const s of [-1,1]){mk(box(.028,.55,.02),accent,trim,s*.12,.33,-.205);mk(box(.12,.028,.2),accent,trim,s*.33,.62,0)}
    E.vest=mk(box(.6,.42,.38),accent,torso,0,.3,-.01);E.vest.material=mats.accent;
    this.pack=mk(box(.5,.55,.22),dark,torso,0,.3,.24);
+   const chain=E.chain=piv(torso,0,0,0);const ring=mk(new THREE.TorusGeometry(.118,.012,6,18),metal,chain,0,.67,-.015);ring.rotation.x=Math.PI/2;mk(box(.035,.055,.012),metal,chain,0,.6,-.125);
+   const collar=E.collar=mk(new THREE.TorusGeometry(.19,.055,8,16),accent,torso,0,.7,.05);collar.rotation.x=Math.PI/2;collar.scale.set(1,1,.8);
    const head=this.head=piv(torso,0,.72,0);mk(cap(.055,.08),skin,head,0,-.03,0);mk(sph(.19),skin,head,0,.1,0);
    for(const s of [-1,1])mk(box(.065,.03,.03),accent,head,s*.075,.14,-.17);
    E.mask=mk(box(.34,.14,.2),dark,head,0,.02,-.09);
@@ -100,9 +103,19 @@ export class Player{
     mk(sph(.1),uniform,sh,0,0,0);mk(cap(.07,.2),uniform,sh,0,-.18,0);mk(cap(.06,.2),uniform,el,0,-.17,0);mk(sph(.065,10,8),dark,el,0,-.34,0);mk(box(.125,.025,.125),accent,el,0,-.04,0);
     E[s<0?'shoulders':'shoulders2']=mk(sph(.14,10,8),accent,sh,0,.02,0);
     this.arms.push({sh,el})}
+   // logo de corona: pecho, bolsillo, mochila (brillante) y zapatillas
+   {const ct=crownTex('#ffffff'),cg=crownTex('#e3c2ff','#b04cff'),ds=[];
+    if(ct&&cg){const dm=(t,w,h,par,x,y,z,ry=0,rx=0)=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:t,transparent:true,alphaTest:.05,depthWrite:false}));m.position.set(x,y,z);m.rotation.set(rx,ry,0);par.add(m);ds.push(m);return m};
+     dm(ct,.1,.075,torso,.13,.46,-.206,Math.PI);dm(cg,.27,.2,this.pack,0,0,.113);dm(ct,.09,.068,this.legs[1].hip,.143,-.24,-.02,Math.PI/2);
+     for(const L of this.legs)dm(ct,.07,.052,L.knee,0,-.357,-.12,0,-Math.PI/2)}
+    E.decals={set visible(v){ds.forEach(d=>d.visible=v)},get visible(){return ds.length?ds[0].visible:false}}}
    // el arma es un grupo fijo (this.gun) cuyo contenido cambia según el arma y sus accesorios (buildGun); this.muzzle es la boca del cañón
    const gun=new THREE.Group();gun.position.set(.27,1.12,-.37);this.group.add(gun);this.gun=gun;this.muzzle=new THREE.Object3D();this.muzzle.position.set(0,.01,-1.1);gun.add(this.muzzle);this.custom={};
-   this.stance=0;this.sb=0;this.sprinting=false;this.sprB=0;this.ph=0;this.mv=0;this.relaxed=false;this.t=0;
+   this.ranT=0;this.idleT=0;this.autoT=0;this.autoRun=true;this.running=false;this.dropping=false;this.stance=0;this.sb=0;this.sprinting=false;this.sprB=0;this.ph=0;this.mv=0;this.relaxed=false;this.t=0;
+   const chute=this.chute=new THREE.Group();chute.visible=false;this.group.add(chute);
+   const cm=new THREE.MeshStandardMaterial({color:0xe8e4d8,roughness:.8,side:THREE.DoubleSide}),cl=new THREE.MeshBasicMaterial({color:0x222222});
+   const dome=new THREE.Mesh(new THREE.SphereGeometry(2.4,16,8,0,Math.PI*2,0,Math.PI/2),cm);dome.position.y=3.6;dome.scale.y=.7;chute.add(dome);
+   for(const [x,z] of [[-1.4,-1.4],[1.4,-1.4],[-1.4,1.4],[1.4,1.4]]){const l=new THREE.Mesh(new THREE.CylinderGeometry(.015,.015,2.9,3),cl);l.position.set(x*.55,2.1,z*.55);l.rotation.z=-x*.16;l.rotation.x=z*.16;chute.add(l)}
    this.setCharacter(this.charIndex);this.buildGun()}
   get character(){return CHARACTERS[this.charIndex]}
   // Alturas según la postura (se suavizan al cambiar)
@@ -111,6 +124,8 @@ export class Player{
   // Aplica colores, detalles y habilidades del personaje elegido (ver CHARACTERS)
   setCharacter(i){const c=CHARACTERS[i]||CHARACTERS[0];this.charIndex=CHARACTERS.indexOf(c);const m=this.mats;for(const k of Object.keys(c.colors))m[k].color.setHex(c.colors[k]);
    if(m.accent.emissive&&m.accent.emissive.setHex){m.accent.emissive.setHex(c.colors.accent);m.accent.emissiveIntensity=.8}
+   const sk=skinFor(c),U=m.uniform,Pm=m.pants;
+   for(const [mt,map,glow] of [[U,sk&&sk.uniform,sk&&sk.uniformGlow],[Pm,sk&&sk.pants,sk&&sk.pantsGlow]]){mt.map=map||null;mt.emissiveMap=glow||null;if(map)mt.color.setHex(0xffffff);if(mt.emissive&&mt.emissive.setHex){mt.emissive.setHex(glow?0xffffff:0x000000);mt.emissiveIntensity=glow?1:0}mt.needsUpdate=true}
    const custom=this.custom[c.id];
    for(const [k,o] of Object.entries(this.extras))o.visible=c.extras.includes(k.replace(/2$/,''));
    this.rig.visible=!custom;
@@ -123,7 +138,7 @@ export class Player{
   animate(dt,spd=0){this.t+=dt;const d=this.stance-this.sb;this.sb+=Math.sign(d)*Math.min(Math.abs(d),dt*4.5);
    const c=Math.min(this.sb,1),p=Math.max(0,Math.min(this.sb-1,1)),cs=c*(1-p);
    this.mv+=((Math.min(1,spd/6))-this.mv)*Math.min(1,dt*10);const mv=this.mv;
-   this.sprB+=((this.sprinting&&mv>.15?1:0)-this.sprB)*Math.min(1,dt*8);const sp=this.sprB;
+   this.sprB+=((this.running&&mv>.15?1:0)-this.sprB)*Math.min(1,dt*8);const sp=this.sprB;
    this.ph+=dt*(5+8*mv+4*sp)*(mv>.02?1:0);const ph=this.ph;
    const amp=mv*(.7-.3*c+.25*sp)*(1-p),rig=this.rig;
    rig.rotation.x=-Math.PI/2*p;rig.position.y=-.37*cs+.22*p;rig.position.z=.144*cs+.9*p;
@@ -174,13 +189,25 @@ export class Player{
   // Recoger un arma nueva: queda en tu poder, con su cargador lleno y su munición inicial, y pasa a ser el arma activa
   giveWeapon(i){const w=this.weapons[i];w.owned=true;w.mag=w.max;w.reserve=w.start.reserve;this.weaponIndex=i;this.buildGun();return w}
   selectWeapon(i){if(!this.weapons[i]||!this.weapons[i].owned)return false;this.weaponIndex=i;this.buildGun();return true}
-  reset(){this.group.position.set(0,0,15);this.group.rotation.set(0,Math.PI,0);this.yaw=Math.PI;this.vy=0;this.grounded=true;this.stance=0;this.sb=0;this.sprinting=false;this.sprB=0;this.weaponIndex=0;this.inv={};this.weapons.forEach((w,i)=>{w.owned=i<3;w.att={scope:null,mag:null,grip:null,muzzle:null};this.applyStats(w);w.mag=w.start.mag;w.reserve=w.start.reserve});this.lastShot=0;this.buildGun()}
-  jump(){if(this.stance!==0){this.stance=0;return}if(this.grounded){this.vy=7.2;this.grounded=false}}
+  reset(){this.group.position.set(0,0,15);this.group.rotation.set(0,Math.PI,0);this.yaw=Math.PI;this.vy=0;this.grounded=true;this.stance=0;this.sb=0;this.sprinting=false;this.running=false;this.ranT=0;this.idleT=0;this.autoT=0;this.dropping=false;this.chute.visible=false;this.sprB=0;this.weaponIndex=0;this.inv={};this.weapons.forEach((w,i)=>{w.owned=i<3;w.att={scope:null,mag:null,grip:null,muzzle:null};this.applyStats(w);w.mag=w.start.mag;w.reserve=w.start.reserve});this.lastShot=0;this.buildGun()}
+  jump(){if(this.dropping)return;if(this.stance!==0){this.stance=0;return}if(this.grounded){this.vy=7.2;this.grounded=false}}
   // Cambia al siguiente arma que tengas (las que aún no has recogido se saltan)
   switchWeapon(){let i=this.weaponIndex;for(let k=0;k<this.weapons.length;k++){i=(i+1)%this.weapons.length;if(this.weapons[i].owned)break}this.weaponIndex=i;this.buildGun();return this.weapon}
   update(dt,input){const forward=new THREE.Vector3(-Math.sin(this.yaw),0,-Math.cos(this.yaw)),right=new THREE.Vector3(Math.cos(this.yaw),0,-Math.sin(this.yaw));const dir=right.multiplyScalar(input.x).add(forward.multiplyScalar(input.y));if(dir.lengthSq()>1)dir.normalize();
-   if(this.sprinting&&(this.stance!==0||input.y<.3))this.sprinting=false; // correr solo hacia delante y de pie
-   const v=this.speed*STANCE.speed[this.stance]*(this.sprinting?STANCE.sprint:1);
+   const fwd=input.y>.3;
+   // Correr: el botón lo deja "armado" aunque sueltes el joystick un instante; se apaga al detenerte (o a los 8 s sin moverte)
+   if(this.sprinting){if(this.stance!==0||this.dropping)this.sprinting=false;else if(fwd){this.ranT+=dt;this.idleT=0}else{this.idleT+=dt;if((this.ranT>.25&&this.idleT>.4)||this.idleT>8)this.sprinting=false}}else{this.ranT=0;this.idleT=0}
+   // Correr automático: joystick al máximo hacia delante durante .6 s
+   if(this.autoRun&&!this.sprinting&&this.stance===0&&!this.dropping&&input.y>.92&&Math.abs(input.x)<.6){this.autoT+=dt;if(this.autoT>.6){this.sprinting=true;this.ranT=0;this.idleT=0}}else if(!(input.y>.92))this.autoT=0;
+   this.running=this.sprinting&&fwd&&this.stance===0&&!this.dropping;
+   if(this.dropping){ // paracaídas: planea o se lanza en picada hacia delante
+    const dive=input.y>.6,v=dive?16:9*Math.min(1,dir.length()),fall=dive?15:6.5;
+    this.group.position.addScaledVector(dir,v*dt);this.group.position.y-=fall*dt;if(dir.lengthSq()>.01)this.group.rotation.y=this.yaw;
+    this.chute.visible=this.group.position.y>3;
+    if(this.group.position.y<=0){this.group.position.y=0;this.vy=0;this.grounded=true;this.dropping=false;this.chute.visible=false}
+    this.group.position.x=THREE.MathUtils.clamp(this.group.position.x,-118,118);this.group.position.z=THREE.MathUtils.clamp(this.group.position.z,-118,118);
+    this.animate(dt,dir.length()*6);return}
+   const v=this.speed*STANCE.speed[this.stance]*(this.running?STANCE.sprint:1);
    this.group.position.addScaledVector(dir,v*dt);if(dir.lengthSq()>.01)this.group.rotation.y=this.yaw;this.vy-=19*dt;this.group.position.y+=this.vy*dt;if(this.group.position.y<=0){this.group.position.y=0;this.vy=0;this.grounded=true}this.group.position.x=THREE.MathUtils.clamp(this.group.position.x,-118,118);this.group.position.z=THREE.MathUtils.clamp(this.group.position.z,-118,118);
    this.animate(dt,dir.length()*v)}
 }

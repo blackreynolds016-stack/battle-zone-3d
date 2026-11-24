@@ -44,10 +44,11 @@ export function makeTerrain(scene){
     const rd=roadDist(x,z);if(rd<2.4)c.lerp(c2.setHex(PAL.road),rd<1.4?.9:.55);}
    const sh=1+n*.07;col[k*3]=c.r*sh;col[k*3+1]=c.g*sh;col[k*3+2]=c.b*sh}
   geo.setAttribute('color',new THREE.BufferAttribute(col,3));geo.computeVertexNormals()}
- const gm=texMat(0xffffff,'grass',64,64);gm.vertexColors=true;
+ const gm=texMat(0xffffff,'grass',56,56);gm.vertexColors=true;
  const ground=new THREE.Mesh(geo,gm);ground.receiveShadow=true;scene.add(ground);
  // ---- agua ----
- const water=new THREE.Mesh(new THREE.PlaneGeometry(1400,1400),new THREE.MeshStandardMaterial({color:0x2a8bc8,roughness:.2,metalness:.1,transparent:true,opacity:.9}));
+ const wm=texMat(0x2f8fcb,'water',90,90,{roughness:.25,metalness:.1});wm.transparent=true;wm.opacity=.9;
+ const water=new THREE.Mesh(new THREE.PlaneGeometry(1400,1400),wm);
  water.rotation.x=-Math.PI/2;water.position.y=-.5;scene.add(water);
  // ---- caminos libres: no se ponen árboles ni edificios sobre ellos ----
  const nearPoi=(x,z,k=1)=>{for(const p of POIS)if(Math.hypot(x-p.x,z-p.z)<p.r*k)return true;return false};
@@ -56,7 +57,8 @@ export function makeTerrain(scene){
  const items=[];const PALETTE=[0xd8cdb4,0xc9d4cf,0xd9bfa4,0xcfc3d6,0xb8c9d9,0xe0d6a8];
  const free=(x,z,hw,hd,pad=3.2)=>{for(const c of covers)if(Math.abs(x-c.x)<hw+c.hw+pad&&Math.abs(z-c.z)<hd+c.hd+pad)return false;
   for(const [dx,dz] of [[-1,-1],[1,-1],[-1,1],[1,1],[0,0]])if(landFrac(x+dx*hw,z+dz*hd)<.85)return false;return true};
- const addBox=(x,z,w,d,h,color,kind='stone',roof=true)=>{items.push({x,z,w,d,h,y:h/2,c:new THREE.Color(color),roof});covers.push({x,z,hw:w/2,hd:d/2,h,kind})};
+ const ROOFS=[0xb2563f,0x76828f,0x8d7655,0x5f6e58];
+ const addBox=(x,z,w,d,h,color,kind='stone',roof=true)=>{items.push({x,z,w,d,h,y:h/2,c:new THREE.Color(color),rc:new THREE.Color(ROOFS[Math.floor(rng()*ROOFS.length)]),roof});covers.push({x,z,hw:w/2,hd:d/2,h,kind})};
  for(const p of POIS){
   if(p.kind==='military'){ // fortaleza: edificio central, muros bajos con huecos y dos torres
    const cx=p.x,cz=p.z;addBox(cx,cz,12,9,4.2,0x8d9088);
@@ -69,13 +71,13 @@ export function makeTerrain(scene){
    if(onRoad(x,z,w/2+1.5)&&rng()<.85)continue;if(!free(x,z,w/2,d/2))continue;
    addBox(x,z,w,d,h,PALETTE[Math.floor(rng()*PALETTE.length)]);placed++}}
  // fusiona todos los cuerpos y todos los techos en una malla cada uno
- const wallMat=texMat(0xffffff,'wall',1,1);wallMat.vertexColors=true;const roofMat=mat(0x3b4140,.75);roofMat.vertexColors=true;
+ const wallMat=texMat(0xffffff,'wall',1,1);wallMat.vertexColors=true;const roofMat=texMat(0xffffff,'tiles',1,1);roofMat.vertexColors=true;
  function merge(list,material,roof){
   const probe=new THREE.BoxGeometry(1,1,1);
   if(!probe.attributes||!probe.attributes.position){for(const b of list){const m=new THREE.Mesh(new THREE.BoxGeometry(b.w,b.h,b.d),material);m.position.set(b.x,roof?b.h+.15:b.y,b.z);scene.add(m)}return}
   const P=[],Nn=[],U=[],C=[],I=[];let off=0;
   for(const b of list){const w=roof?b.w+.3:b.w,h=roof?.3:b.h,d=roof?b.d+.3:b.d,cy=roof?b.h+.15:b.y;const g=new THREE.BoxGeometry(w,h,d),pa=g.attributes.position,na=g.attributes.normal,ua=g.attributes.uv,ia=g.index;
-   const col=roof?{r:.2,g:.22,b:.22}:b.c;
+   const col=roof?b.rc:b.c;
    for(let k=0;k<pa.count;k++){P.push(pa.getX(k)+b.x,pa.getY(k)+cy,pa.getZ(k)+b.z);const nx=na.getX(k),nz=na.getZ(k);Nn.push(nx,na.getY(k),nz);
     let u=ua.getX(k),v=ua.getY(k);if(Math.abs(nx)>.5){u*=d/3;v*=h/3.2}else if(Math.abs(nz)>.5){u*=w/3;v*=h/3.2}else{u*=w/3;v*=d/3}
     U.push(u,v);C.push(col.r,col.g,col.b)}
@@ -93,17 +95,17 @@ export function makeTerrain(scene){
  const tmp=new THREE.Object3D(),inst=(g,m,n,cast)=>{const o=new THREE.InstancedMesh(g,m,n);o.castShadow=cast;o.receiveShadow=true;scene.add(o);return o};
  const tn=trees.length;
  if(tn&&THREE.InstancedMesh){
-  const trunk=inst(new THREE.CylinderGeometry(.18,.3,2.4,6),mat(0x5a4330),tn,true),cA=inst(new THREE.ConeGeometry(1.6,2.8,7),mat(0x2f6b34,.95),tn,true),cB=inst(new THREE.ConeGeometry(1.15,2.3,7),mat(0x3b7d3b,.95),tn,false);
+  const trunk=inst(new THREE.CylinderGeometry(.18,.3,2.4,7),texMat(0x7b5c40,'bark',2,2),tn,true),cA=inst(new THREE.ConeGeometry(1.6,2.8,9),texMat(0x3f8a3c,'foliage',3,2),tn,true),cB=inst(new THREE.ConeGeometry(1.15,2.3,9),texMat(0x4c9a45,'foliage',2,2),tn,false);
   const gc=new THREE.Color();
   trees.forEach(([x,z,s],i)=>{const put=(m,y,sc)=>{tmp.position.set(x,y*s,z);tmp.scale.set(s*sc,s,s*sc);tmp.rotation.y=i*1.7;tmp.updateMatrix();m.setMatrixAt(i,tmp.matrix)};
    put(trunk,1.2,1);put(cA,3.4,1);put(cB,4.55,1);
-   if(cA.setColorAt){gc.setHex(0x2f6b34).offsetHSL((rng()-.5)*.04,0,(rng()-.5)*.1);cA.setColorAt(i,gc);gc.offsetHSL(.01,0,.04);cB.setColorAt(i,gc)}
+   if(cA.setColorAt){const v=.78+rng()*.4;gc.setRGB(v*.92,v,v*.9);cA.setColorAt(i,gc);gc.setRGB(v*1.02,v*1.08,v*.95);cB.setColorAt(i,gc)}
    covers.push({x,z,hw:.35,hd:.35,h:7,kind:'wood'})});
   for(const m of [trunk,cA,cB]){m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true}}
  const rocks=[];
  for(let i=0,t=0;i<110&&t<2000;t++){const x=(rng()*2-1)*(HALF-8),z=(rng()*2-1)*(HALF-8);if(landFrac(x,z)<.85||nearPoi(x,z,.7)||onRoad(x,z,3))continue;
   const r=.7+rng()*.9;let bad=false;for(const c of covers)if(Math.abs(x-c.x)<c.hw+r+1&&Math.abs(z-c.z)<c.hd+r+1){bad=true;break}if(bad)continue;rocks.push([x,z,r]);i++}
- if(rocks.length&&THREE.InstancedMesh){const rm=inst(new THREE.DodecahedronGeometry(1,0),mat(0x7b7f79,.95),rocks.length,true);rm.material.flatShading=true;
+ if(rocks.length&&THREE.InstancedMesh){const rm=inst(new THREE.DodecahedronGeometry(1,0),texMat(0x8a8d86,'rock',1,1),rocks.length,true);rm.material.flatShading=true;
   rocks.forEach(([x,z,r],i)=>{tmp.position.set(x,r*.55,z);tmp.scale.set(r,r*.75,r);tmp.rotation.y=i*2.3;tmp.updateMatrix();rm.setMatrixAt(i,tmp.matrix);covers.push({x,z,hw:r*.85,hd:r*.85,h:r*1.2,kind:'stone'})});rm.instanceMatrix.needsUpdate=true}
  return {covers,ground,water,pois:POIS}
 }

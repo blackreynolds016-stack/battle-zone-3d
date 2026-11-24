@@ -3,13 +3,16 @@ import {ACCESSORIES} from './player.js';
 import {mat,texMat} from './textures.js';
 import {makeTerrain,isLand,landFrac,HALF,POIS} from './terrain.js';
 export {mat,texMat};
-function soldier(scene,x,z,index){const g=new THREE.Group();const uniform=mat(index%2?0x7b493e:0x4b5848),skin=mat(0x9c7056),dark=mat(0x252b29);const torso=new THREE.Mesh(new THREE.CapsuleGeometry(.32,.68,4,8),uniform);torso.position.y=1;torso.castShadow=true;g.add(torso);const head=new THREE.Mesh(new THREE.SphereGeometry(.21,12,10),skin);head.position.y=1.72;head.castShadow=true;g.add(head);const pack=new THREE.Mesh(new THREE.BoxGeometry(.4,.5,.22),dark);pack.position.set(0,1,-.3);g.add(pack);for(const s of [-1,1]){const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.1,.5,3,7),dark);leg.position.set(s*.18,.38,0);g.add(leg);const arm=new THREE.Mesh(new THREE.CapsuleGeometry(.09,.42,3,7),uniform);arm.position.set(s*.37,1.05,-.05);g.add(arm)}g.position.set(x,0,z);
+function soldier(scene,x,z,index){const g=new THREE.Group();const uniform=mat(index%2?0x7b493e:0x4b5848),skin=mat(0x9c7056),dark=mat(0x252b29);const torso=new THREE.Mesh(new THREE.CapsuleGeometry(.32,.68,4,8),uniform);torso.position.y=1;torso.castShadow=true;g.add(torso);const head=new THREE.Mesh(new THREE.SphereGeometry(.21,12,10),skin);head.position.y=1.72;head.castShadow=true;g.add(head);const pack=new THREE.Mesh(new THREE.BoxGeometry(.4,.5,.22),dark);pack.position.set(0,1,-.3);g.add(pack);const limbs=[];for(const s of [-1,1]){const lg=new THREE.CapsuleGeometry(.1,.5,3,7),ag=new THREE.CapsuleGeometry(.09,.42,3,7);if(lg.translate){lg.translate(0,-.35,0);ag.translate(0,-.3,0)}const leg=new THREE.Mesh(lg,dark);leg.position.set(s*.18,lg.translate?.73:.38,0);leg.castShadow=true;g.add(leg);const arm=new THREE.Mesh(ag,uniform);arm.position.set(s*.37,ag.translate?1.35:1.05,-.05);arm.castShadow=true;g.add(arm);limbs.push(leg,arm)}g.position.set(x,0,z);
  // team: 0 = verdes (índice par), 1 = rojos (índice impar). target: null | 'player' | otro enemigo.
- g.userData={alive:true,hp:100,cooldown:1+Math.random()*2,attack:0,index,team:index%2,
+ g.userData={limbs,alive:true,hp:100,cooldown:1+Math.random()*2,attack:0,index,team:index%2,
   state:'chase',stun:0,flash:0,flashOn:false,alert:0,sees:false,dying:0,coverPt:null,coverT:0,coverCd:0,last:new THREE.Vector3(x,0,z),head,mats:[uniform,skin],
   target:null,tgtT:Math.random()*.3,wp:null,wpT:0,repoT:3+Math.random()*5,phase:Math.random()*6,
   wantMove:false,moveTime:0,stuckT:0,sx:x,sz:z,dirX:0,dirZ:1,detour:0,detourN:0,detourAge:99,sideSign:1};
  g.children.forEach(c=>{c.userData.owner=g});
+ // barra de vida sobre la cabeza (siempre mira a la cámara)
+ {const bg=new THREE.Sprite(new THREE.SpriteMaterial({color:0x000000,transparent:true,opacity:.6,depthWrite:false})),fg=new THREE.Sprite(new THREE.SpriteMaterial({color:0x7be05a,transparent:true,depthWrite:false}));
+  bg.scale.set(1.04,.15,1);bg.position.y=2.25;fg.scale.set(1,.1,1);if(fg.center)fg.center.set(0,.5);fg.position.set(-.5,2.25,0);bg.visible=fg.visible=false;g.add(bg);g.add(fg);g.userData.bar=[bg,fg]}
  scene.add(g);return g}
 
 export function makeWorld(scene){
@@ -92,7 +95,7 @@ export function makeWorld(scene){
  function face(e,x,z){e.lookAt(x,e.position.y,z)}
  // Elige el objetivo hostil más cercano con línea de visión (el actual tiene ventaja para no cambiar a cada rato)
  function pickTarget(e){const u=e.userData,cands=[];
-  const dp=Math.hypot(playerPos.x-e.position.x,playerPos.z-e.position.z);if(dp<DETECT_PLAYER)cands.push({t:'player',d:u.target==='player'?dp*.75:dp,x:playerPos.x,z:playerPos.z,y:W.playerH});
+  const dp=Math.hypot(playerPos.x-e.position.x,playerPos.z-e.position.z);if(dp<DETECT_PLAYER)if(!W.dropping)cands.push({t:'player',d:u.target==='player'?dp*.75:dp,x:playerPos.x,z:playerPos.z,y:W.playerH});
   for(const o of enemies){if(o===e||!o.userData.alive||!hostile(e,o))continue;const d=Math.hypot(o.position.x-e.position.x,o.position.z-e.position.z);if(d<DETECT_ENEMY)cands.push({t:o,d:u.target===o?d*.75:d,x:o.position.x,z:o.position.z,y:1.2})}
   cands.sort((a,b)=>a.d-b.d);
   for(const c of cands){if(hasLOSTo(e,c.x,c.z,c.y)){u.target=c.t;u.sees=true;return}}
@@ -105,11 +108,17 @@ export function makeWorld(scene){
    if(Math.hypot(x,z)>lim||!freeSpot(x,z,.9))continue;u.wp={x,z};u.wpT=25;return}
   u.wp={x:0,z:0};u.wpT=12}
 
- W={enemies,loot,zone,edge,hitSolids,covers,isLand,ground:terr.ground,teams:false,playerH:1.2,zoneTotal:ZONE_T,playerSpawn:{x:0,z:0},zoneRadius:ZONE0,zoneCenter:new THREE.Vector2(0,0),phase:0,
-  reset(){this.playerSpawn=randomSpot(0,null,HALF-14);enemies.forEach(e=>{const u=e.userData;e.visible=true;e.rotation.set(0,0,0);const sp=u.index%5<3?poiSpot(this.playerSpawn):randomSpot(55,this.playerSpawn);e.position.set(sp.x,0,sp.z);u.alive=true;u.hp=100;u.state='chase';u.stun=0;u.flash=0;u.alert=0;u.sees=false;u.dying=0;u.coverPt=null;u.coverT=0;u.coverCd=0;u.attack=0;u.cooldown=1+Math.random()*2;u.mats.forEach(m=>m.emissive.setHex(0));u.flashOn=false;
+ W={enemies,loot,zone,edge,hitSolids,covers,isLand,ground:terr.ground,teams:false,playerH:1.2,zoneTotal:ZONE_T,playerSpawn:{x:0,z:0},dropping:false,zoneRadius:ZONE0,zoneCenter:new THREE.Vector2(0,0),phase:0,
+  reset(){this.playerSpawn=randomSpot(0,null,HALF-14);enemies.forEach(e=>{const u=e.userData;e.visible=true;e.rotation.set(0,0,0);u.px=undefined;const sp=u.index%5<3?poiSpot(this.playerSpawn):randomSpot(55,this.playerSpawn);e.position.set(sp.x,0,sp.z);u.alive=true;u.hp=100;u.state='chase';u.stun=0;u.flash=0;u.alert=0;u.sees=false;u.dying=0;u.coverPt=null;u.coverT=0;u.coverCd=0;u.attack=0;u.cooldown=1+Math.random()*2;u.mats.forEach(m=>m.emissive.setHex(0));u.flashOn=false;
    u.target=null;u.tgtT=Math.random()*.3;u.wp=null;u.wpT=0;u.repoT=3+Math.random()*5;u.wantMove=false;u.moveTime=0;u.stuckT=0;u.sx=e.position.x;u.sz=e.position.z;u.detour=0;u.detourN=0;u.detourAge=99;u.last.set(e.position.x,0,e.position.z)});loot.forEach(l=>{l.visible=true;l.userData.active=true});rollLoot();this.zoneRadius=ZONE0;this.phase=0;this.zone.scale.setScalar(ZONE0);this.edge.scale.setScalar(ZONE0)},
   // Sitúa al jugador en un punto libre de la isla, mirando hacia el centro
-  spawnPlayer(player){const p=this.playerSpawn;player.group.position.set(p.x,0,p.z);player.yaw=Math.atan2(p.x,p.z);player.group.rotation.y=player.yaw},
+  spawnPlayer(player,drop){const p=this.playerSpawn;player.group.position.set(p.x,drop?72:0,p.z);player.yaw=Math.atan2(p.x,p.z);player.group.rotation.y=player.yaw;player.dropping=!!drop;player.vy=0;player.grounded=!drop;this.dropping=!!drop},
+  // Animación de caminar y barra de vida de los enemigos
+  animateEnemies(dt,player){enemies.forEach(e=>{const u=e.userData,bar=u.bar;if(!u.alive){if(bar)bar[0].visible=bar[1].visible=false;return}
+   const dx=e.position.x-(u.px===undefined?e.position.x:u.px),dz=e.position.z-(u.pz===undefined?e.position.z:u.pz);u.px=e.position.x;u.pz=e.position.z;
+   const sp=dt>0?Math.hypot(dx,dz)/dt:0;u.walk=(u.walk||0)+sp*dt*2.4;const k=Math.min(1,sp/2.2)*.75,s=Math.sin(u.walk)*k,L=u.limbs;
+   if(L){L[0].rotation.x=s;L[2].rotation.x=-s;L[1].rotation.x=-s*.8;L[3].rotation.x=s*.8}
+   if(bar){const d=Math.hypot(e.position.x-player.position.x,e.position.z-player.position.z),show=d<48&&!player.dropping;bar[0].visible=bar[1].visible=show;if(show){bar[1].scale.x=Math.max(.001,u.hp/100);if(bar[1].material.color&&bar[1].material.color.setHex)bar[1].material.color.setHex(u.hp>55?0x7be05a:u.hp>25?0xf0c43a:0xe5483c)}}})},
   // Colisión del jugador: lo saca de edificios/árboles/rocas y le impide entrar al agua (px,pz = posición anterior)
   constrain(p,px,pz){pushOut(p,.4);if(!isLand(p.x,p.z)){if(isLand(p.x,pz))p.z=pz;else if(isLand(px,p.z))p.x=px;else{p.x=px;p.z=pz}}},
   // Aplica daño a un enemigo. attacker: 'player' (por defecto) u otro enemigo. Devuelve true si muere.
@@ -120,7 +129,7 @@ export function makeWorld(scene){
    return false},
   // Un ruido (disparo del jugador) alerta a los enemigos cercanos que aún no tienen objetivo: van a investigar.
   alertNear(pos,radius){for(const e of enemies){const u=e.userData;if(!u.alive||u.target)continue;if(Math.hypot(pos.x-e.position.x,pos.z-e.position.z)<radius){u.alert=6;u.last.set(pos.x,0,pos.z)}}},
-  update(dt,player,elapsed){this.phase=Math.min(1,elapsed/ZONE_T);this.zoneRadius=ZONE0-80*this.phase;this.playerH=player.chestH;this.zone.scale.setScalar(this.zoneRadius);this.edge.scale.setScalar(this.zoneRadius);this.cullT=(this.cullT||0)-dt;const doCull=this.cullT<=0;if(doCull)this.cullT=.25;this.loot.forEach(l=>{if(!l.userData.active)return;l.rotation.y+=dt*.8;if(doCull)l.visible=Math.hypot(l.position.x-player.position.x,l.position.z-player.position.z)<60});
+  update(dt,player,elapsed){this.phase=Math.min(1,elapsed/ZONE_T);this.zoneRadius=ZONE0-80*this.phase;this.playerH=player.chestH;const wmap=terr.water.material.map;if(wmap&&wmap.offset){wmap.offset.x+=dt*.003;wmap.offset.y+=dt*.0015}this.dropping=!!player.dropping;this.animateEnemies(dt,player);this.zone.scale.setScalar(this.zoneRadius);this.edge.scale.setScalar(this.zoneRadius);this.cullT=(this.cullT||0)-dt;const doCull=this.cullT<=0;if(doCull)this.cullT=.25;this.loot.forEach(l=>{if(!l.userData.active)return;l.rotation.y+=dt*.8;if(doCull)l.visible=Math.hypot(l.position.x-player.position.x,l.position.z-player.position.z)<60});
    playerPos.copy(player.position);
    enemies.forEach(e=>{const u=e.userData;
     if(!u.alive){if(u.dying>0){u.dying=Math.max(0,u.dying-dt);const k=1-u.dying/.9;e.rotation.x=-k*Math.PI/2;e.position.y=-k*.3;if(u.dying<=0)e.visible=false}return}
