@@ -110,7 +110,7 @@ export class Player{
      for(const L of this.legs)dm(ct,.07,.052,L.knee,0,-.357,-.12,0,-Math.PI/2)}
     E.decals={set visible(v){ds.forEach(d=>d.visible=v)},get visible(){return ds.length?ds[0].visible:false}}}
    // el arma es un grupo fijo (this.gun) cuyo contenido cambia según el arma y sus accesorios (buildGun); this.muzzle es la boca del cañón
-   const gun=new THREE.Group();gun.position.set(.27,1.12,-.37);this.group.add(gun);this.gun=gun;this.muzzle=new THREE.Object3D();this.muzzle.position.set(0,.01,-1.1);gun.add(this.muzzle);this.custom={};
+   const gun=new THREE.Group();gun.position.set(.27,1.12,-.37);this.group.add(gun);this.gun=gun;this.muzzle=new THREE.Object3D();this.muzzle.position.set(0,.01,-1.1);gun.add(this.muzzle);this.custom={};this.anims={};this.cur=null;this.dead=false;this.aiming=false;
    this.ranT=0;this.idleT=0;this.autoT=0;this.autoRun=true;this.running=false;this.dropping=false;this.stance=0;this.sb=0;this.sprinting=false;this.sprB=0;this.ph=0;this.mv=0;this.relaxed=false;this.t=0;
    // Movimiento con inercia: velocidad horizontal real, pose en el aire, impacto al aterrizar y polvo (main.js lo consume)
    this.vx=0;this.vz=0;this.lx=0;this.lz=0;this.air=0;this.landT=0;this.landImpact=0;this.runDust=false;this.dustT=0;this.jumpBuf=0;
@@ -130,7 +130,8 @@ export class Player{
    for(const [mt,map,glow] of [[U,sk&&sk.uniform,sk&&sk.uniformGlow],[Pm,sk&&sk.pants,sk&&sk.pantsGlow]]){mt.map=map||null;mt.emissiveMap=glow||null;if(map)mt.color.setHex(0xffffff);if(mt.emissive&&mt.emissive.setHex){mt.emissive.setHex(glow?0xffffff:0x000000);mt.emissiveIntensity=glow?1:0}mt.needsUpdate=true}
    const custom=this.custom[c.id];
    for(const [k,o] of Object.entries(this.extras))o.visible=c.extras.includes(k.replace(/2$/,''));
-   this.rig.visible=!custom;
+   this.rig.visible=!custom;this.cur=this.anims[c.id]||null;
+   if(this.cur){this.cur.mount.add(this.gun);this.gun.position.set(0,0,-.37);this.gun.rotation.set(0,0,0)}else if(this.gun.parent!==this.group)this.group.add(this.gun);
    for(const [id,o] of Object.entries(this.custom))o.visible=(id===c.id);
    this.pack.scale.set(c.pack,c.pack,c.pack);this.speed=c.speed}
   // Cambia de postura: pulsar la misma otra vez vuelve a ponerse de pie. Devuelve la postura resultante
@@ -142,6 +143,7 @@ export class Player{
    this.mv+=((Math.min(1,spd/6))-this.mv)*Math.min(1,dt*10);const mv=this.mv;
    this.sprB+=((this.running&&mv>.15?1:0)-this.sprB)*Math.min(1,dt*8);const sp=this.sprB;
    this.ph+=dt*(5+8*mv+4*sp)*(1-.45*Math.max(0,this.sb-1))*(mv>.02?1:0);const ph=this.ph;
+   if(this.cur&&this.cur.mixer){this.driveClips(dt,spd);return}
    const ar=this.air,ld=this.landT; // ar = pose en el aire, ld = amortiguación al aterrizar
    const amp=mv*(.7-.3*c+.25*sp)*(1-p)*(1-.8*ar),rig=this.rig;
    rig.rotation.x=-Math.PI/2*p;rig.rotation.z=Math.sin(ph)*.07*mv*p;rig.position.y=-.37*cs+.22*p-.3*ld*(1-p);rig.position.z=.144*cs+.9*p;
@@ -160,7 +162,63 @@ export class Player{
    gp.set(.27+(-.0)*u+.03*q,1.12-.34*u-.48*q-.08*sp,-.37-.08*u-.55*q);this.gun.rotation.x=.45*sp;
    this.tail.rotation.x=.35+Math.sin(ph)*.25*mv+Math.sin(this.t*1.7)*.04+.3*sp}
   // Modelo 3D propio (.glb) para un personaje: sustituye al modelo hecho con formas básicas. Ver loadCustomModels en main.js
-  setCustomModel(id,obj){const box=new THREE.Box3().setFromObject(obj),h=box.max.y-box.min.y;if(h>0)obj.scale.multiplyScalar(1.8/h);obj.position.y-=box.min.y*(1.8/h||1);obj.rotation.y=Math.PI;this.group.add(obj);this.custom[id]=obj;this.setCharacter(this.charIndex)}
+  setCustomModel(id,obj,clips){const box=new THREE.Box3().setFromObject(obj),h=box.max.y-box.min.y,k=(h>1&&h<3)?1.8/h:1;obj.scale.multiplyScalar(k);if(k!==1||h>1)obj.position.y-=box.min.y*k;obj.rotation.y=Math.PI;this.group.add(obj);this.custom[id]=obj;if(clips&&clips.length)this.initAnim(id,obj,clips);this.setCharacter(this.charIndex)}
+  // ---------- Animación con esqueleto (modelos .glb creados con animaciones) ----------
+  // Dos capas independientes: piernas/cuerpo (idle, walk, run, sprint, crouch, crouch_walk, prone, crawl, stand_up, jump, fall, land, die)
+  // y brazos con el arma (arm_hold, arm_run, arm_sprint, arm_aim, arm_air, arm_crouch, arm_prone, arm_crawl, arm_relax y las de un solo uso: arm_shoot, arm_reload, arm_switch, arm_hit).
+  initAnim(id,obj,clips){
+   if(typeof THREE.AnimationMixer!=='function')return;
+   const mixer=new THREE.AnimationMixer(obj),acts={},hand=obj.getObjectByName('Hand_R');
+   for(const c of clips){const a=mixer.clipAction(c);acts[c.name]=a;if(/^(stand_up|jump|land|die|arm_shoot|arm_reload|arm_switch|arm_hit)$/.test(c.name)){a.setLoop(THREE.LoopOnce,1);a.clampWhenFinished=true}}
+   if(!hand||!acts.idle||!acts.arm_hold){console.warn('El modelo '+id+' no trae el esqueleto o las animaciones esperadas');return}
+   // el arma se monta en la mano derecha: gira 180° sobre (0,1,1) para que el cañón apunte hacia delante y la empuñadura quede en la palma
+   const mount=new THREE.Object3D();mount.quaternion.set(0,Math.SQRT1_2,Math.SQRT1_2,0);mount.position.set(0,.26,.1);hand.add(mount);
+   obj.traverse(o=>{if(o.isSkinnedMesh)o.frustumCulled=false});
+   this.anims[id]={mixer,acts,mount,low:null,arm:null,lowLock:0,armLock:0,lastLand:0,prevStance:0,lowTs:1}}
+  // pone una animación en una capa (con fundido). once=true: se reproduce una vez y bloquea la capa 'lock' segundos
+  _play(A,layer,name,fade=.2,ts=1,once=0){
+   const a=A.acts[name];if(!a)return;const key=layer==='low'?'low':'arm',cur=A[key];
+   if(cur===name&&!once){a.setEffectiveTimeScale(ts);return}
+   if(cur&&cur!==name&&A.acts[cur])A.acts[cur].fadeOut(fade);
+   a.reset().setEffectiveTimeScale(ts).setEffectiveWeight(1).fadeIn(fade).play();A[key]=name;
+   if(once)A[layer==='low'?'lowLock':'armLock']=a.getClip().duration/Math.abs(ts)}
+  playShoot(){const A=this.cur;if(A&&!this.dead&&this.stance<2&&A.armLock<=0)this._play(A,'arm','arm_shoot',.03,1,1)}
+  playReload(sec){const A=this.cur;if(A&&!this.dead&&this.stance<2)this._play(A,'arm','arm_reload',.15,A.acts.arm_reload?A.acts.arm_reload.getClip().duration/Math.max(.3,sec):1,1)}
+  playSwitch(){const A=this.cur;if(A&&!this.dead&&this.stance<2)this._play(A,'arm','arm_switch',.1,1,1)}
+  playHit(){const A=this.cur;if(A&&!this.dead&&this.stance<2&&A.armLock<=0)this._play(A,'arm','arm_hit',.05,1,1)}
+  playDeath(){const A=this.cur;if(!A||this.dead)return;this.dead=true;for(const k of [A.low,A.arm])if(k&&A.acts[k])A.acts[k].fadeOut(.15);A.low=A.arm=null;A.lowLock=A.armLock=0;A.acts.die.reset().setEffectiveWeight(1).fadeIn(.1).play()}
+  revive(){const A=this.cur;this.dead=false;if(!A)return;if(A.acts.die)A.acts.die.stop();A.low=A.arm=null;A.lowLock=A.armLock=0;for(const k in A.acts)A.acts[k].stop()}
+  driveClips(dt,spd){
+   const A=this.cur,sb=this.sb,st=this.stance,mvS=this.mv*6,sp=this.sprB;
+   if(this.dead){A.mixer.update(dt);return}
+   A.lowLock=Math.max(0,A.lowLock-dt);A.armLock=Math.max(0,A.armLock-dt);
+   // ----- piernas y cuerpo -----
+   const rising=this.landT>A.lastLand+.2;A.lastLand=this.landT;
+   const wasProne=A.prevStance===2&&st!==2;A.prevStance=st;
+   if(wasProne&&this.grounded!==false)this._play(A,'low','stand_up',.1,1.6,1);
+   if(A.lowLock<=0){
+    const moving=mvS>.3;
+    if(this.grounded===false||this.dropping)this._play(A,'low',this.vy>1&&!this.dropping?'jump':'fall',.12);
+    else if(rising&&st===0&&mvS<3)this._play(A,'low','land',.05,1,1);
+    else if(sb>1.5)this._play(A,'low',moving?'crawl':'prone',.25,moving?Math.max(.6,Math.min(1.5,mvS/1.6)):1);
+    else if(sb>.5)this._play(A,'low',moving?'crouch_walk':'crouch',.25,moving?Math.max(.6,Math.min(1.5,mvS/2.4)):1);
+    else if(!moving)this._play(A,'low','idle',.25);
+    else if(sp>.5)this._play(A,'low','sprint',.15,Math.max(.8,Math.min(1.3,spd/8.1)));
+    else if(mvS<3.4)this._play(A,'low','walk',.2,Math.max(.6,Math.min(1.5,mvS/2.4)));
+    else this._play(A,'low','run',.2,Math.max(.8,Math.min(1.3,spd/5.4)));
+   }
+   // ----- brazos con el arma -----
+   if(A.armLock<=0){
+    const moving=mvS>.3,run=A.low==='run'||A.low==='sprint';
+    if(this.relaxed)this._play(A,'arm','arm_relax',.25);
+    else if(this.grounded===false)this._play(A,'arm','arm_air',.15);
+    else if(sb>1.5)this._play(A,'arm',moving?'arm_crawl':'arm_prone',.25,moving?Math.max(.6,Math.min(1.5,mvS/1.6)):1);
+    else if(sb>.5)this._play(A,'arm','arm_crouch',.25);
+    else if(this.aiming)this._play(A,'arm','arm_aim',.15);
+    else if(sp>.5&&moving)this._play(A,'arm','arm_sprint',.15,Math.max(.8,Math.min(1.3,spd/8.1)));
+    else if(moving&&run)this._play(A,'arm','arm_run',.2,Math.max(.8,Math.min(1.3,spd/5.4)));
+    else this._play(A,'arm','arm_hold',.25)}
+   A.mixer.update(dt)}
   // Reconstruye el modelo 3D del arma actual con sus accesorios instalados
   buildGun(){const g=this.gun,w=this.weapon,att=w.att,M=MODELS[w.model];
    for(const c of [...g.children]){if(c===this.muzzle)continue;g.remove(c);if(c.geometry)c.geometry.dispose()}
@@ -194,7 +252,7 @@ export class Player{
   // Recoger un arma nueva: queda en tu poder, con su cargador lleno y su munición inicial, y pasa a ser el arma activa
   giveWeapon(i){const w=this.weapons[i];w.owned=true;w.mag=w.max;w.reserve=w.start.reserve;this.weaponIndex=i;this.buildGun();return w}
   selectWeapon(i){if(!this.weapons[i]||!this.weapons[i].owned)return false;this.weaponIndex=i;this.buildGun();return true}
-  reset(){this.group.position.set(0,0,15);this.group.rotation.set(0,Math.PI,0);this.yaw=Math.PI;this.vy=0;this.grounded=true;this.vx=0;this.vz=0;this.air=0;this.landT=0;this.landImpact=0;this.jumpBuf=0;this.dustT=0;this.stance=0;this.sb=0;this.sprinting=false;this.running=false;this.ranT=0;this.idleT=0;this.autoT=0;this.dropping=false;this.chute.visible=false;this.sprB=0;this.weaponIndex=0;this.inv={};this.weapons.forEach((w,i)=>{w.owned=i<3;w.att={scope:null,mag:null,grip:null,muzzle:null};this.applyStats(w);w.mag=w.start.mag;w.reserve=w.start.reserve});this.lastShot=0;this.buildGun()}
+  reset(){this.group.position.set(0,0,15);this.group.rotation.set(0,Math.PI,0);this.yaw=Math.PI;this.revive();this.vy=0;this.grounded=true;this.vx=0;this.vz=0;this.air=0;this.landT=0;this.landImpact=0;this.jumpBuf=0;this.dustT=0;this.stance=0;this.sb=0;this.sprinting=false;this.running=false;this.ranT=0;this.idleT=0;this.autoT=0;this.dropping=false;this.chute.visible=false;this.sprB=0;this.weaponIndex=0;this.inv={};this.weapons.forEach((w,i)=>{w.owned=i<3;w.att={scope:null,mag:null,grip:null,muzzle:null};this.applyStats(w);w.mag=w.start.mag;w.reserve=w.start.reserve});this.lastShot=0;this.buildGun()}
   jump(){if(this.dropping)return;if(this.stance!==0){this.stance=0;return}if(this.grounded){this.vy=7.2;this.grounded=false}else this.jumpBuf=.12}
   // Cambia al siguiente arma que tengas (las que aún no has recogido se saltan)
   switchWeapon(){let i=this.weaponIndex;for(let k=0;k<this.weapons.length;k++){i=(i+1)%this.weapons.length;if(this.weapons[i].owned)break}this.weaponIndex=i;this.buildGun();return this.weapon}
@@ -215,7 +273,7 @@ export class Player{
     this.animate(dt,dir.length()*6);return}
    const pp=this.group.position;
    // Si algo (pared, roca) empujó al jugador hacia atrás después de moverse (world.constrain), se descuenta de la velocidad: así no "acumula" empuje contra la pared
-   if(dt>1e-4&&Math.abs(pp.x-this.lx)<3&&Math.abs(pp.z-this.lz)<3){this.vx+=(pp.x-this.lx)/dt*.8;this.vz+=(pp.z-this.lz)/dt*.8}
+   {const cx=pp.x-this.lx,cz=pp.z-this.lz;if(dt>1e-4&&cx*cx+cz*cz<.36){this.vx+=cx/dt*.8;this.vz+=cz/dt*.8;const m=Math.hypot(this.vx,this.vz),mx=this.speed*STANCE.sprint*1.3;if(m>mx){this.vx*=mx/m;this.vz*=mx/m}}}
    // Aceleración y frenado progresivos (en el aire casi no se corrige: conserva el impulso)
    const v=this.speed*STANCE.speed[this.stance]*(this.running?STANCE.sprint:1),gr=this.grounded!==false,moving=dir.lengthSq()>.01;
    const tx=dir.x*v,tz=dir.z*v,dx=tx-this.vx,dz=tz-this.vz,dl=Math.hypot(dx,dz),md=(gr?(moving?34:42):6)*dt;
