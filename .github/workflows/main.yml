@@ -19,7 +19,7 @@ jobs:
   publicar:
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment2.outputs.page_url || steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Descargar repositorio
@@ -31,8 +31,17 @@ jobs:
         with:
           name: sitio-${{ github.run_id }}-${{ github.run_attempt }}
           path: .
+      - name: Esperar a que GitHub registre el artefacto
+        run: sleep 8
       - name: Publicar Battle Zone 3D
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: sitio-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Reintentar publicación si falló
+        id: deployment2
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
         with:
           artifact_name: sitio-${{ github.run_id }}-${{ github.run_attempt }}
