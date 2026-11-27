@@ -34,9 +34,9 @@ export function makeWorld(scene){
     if(a<bt){bt=a;best=c}}}
   return best?{t:bt,c:best}:null}
  // Primer impacto de un rayo (origen, dirección normalizada, alcance) contra obstáculos o el suelo
- function hitSolids(o,d,far){const h=castRay(o.x,o.y,o.z,d.x,d.y,d.z,far);let t=h?h.t:Infinity,kind=h?h.c.kind:null;
+ function hitSolids(o,d,far,tmp){const h=castRay(o.x,o.y,o.z,d.x,d.y,d.z,far);let t=h?h.t:Infinity,kind=h?h.c.kind:null;
   if(d.y<-1e-6){const tg=-o.y/d.y;if(tg>0&&tg<t&&tg<far){t=tg;kind='dirt'}}
-  if(t>far||!isFinite(t))return null;return {distance:t,point:new THREE.Vector3(o.x+d.x*t,o.y+d.y*t,o.z+d.z*t),kind}}
+  if(t>far||!isFinite(t))return null;if(tmp){tmp.distance=t;tmp.point.set(o.x+d.x*t,o.y+d.y*t,o.z+d.z*t);tmp.kind=kind;return tmp}return {distance:t,point:new THREE.Vector3(o.x+d.x*t,o.y+d.y*t,o.z+d.z*t),kind}}
  const enemies=[];for(let i=0;i<ENEMIES;i++)enemies.push(soldier(scene,0,0,i));
  // Puntos de aparición: tierra firme y libres de obstáculos
  const freeSpot=(x,z,m=1.4)=>{if(landFrac(x,z)<.82)return false;for(const c of cellList(x,z))if(Math.abs(x-c.x)<c.hw+m&&Math.abs(z-c.z)<c.hd+m)return false;return true};

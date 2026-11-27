@@ -87,7 +87,12 @@ try{pname=localStorage.getItem('egozne-name')||pname;xp=parseInt(localStorage.ge
 const XPL=200,save=(k,v)=>{try{localStorage.setItem(k,String(v))}catch(e){}};
 function renderProfile(){$('#lb-name').textContent=pname;$('#lb-level').textContent='Nvl. '+(1+Math.floor(xp/XPL));$('#lb-xpbar').style.width=(xp%XPL)/XPL*100+'%';const av=$('#lb-avatar');if(av)av.style.borderColor='#'+player.character.colors.accent.toString(16).padStart(6,'0');setIco($('#lb-gunico'),'ak47')}
 function addXp(n){xp+=n;save('egozne-xp',xp);renderProfile()}
-function applyQuality(){const dpr=typeof devicePixelRatio==='number'?devicePixelRatio:1;renderer.setPixelRatio(quality==='low'?1:quality==='high'?Math.min(dpr,2):Math.min(dpr,1.25));renderer.setSize(innerWidth,innerHeight);sun.castShadow=quality!=='low';const sz=quality==='high'?2048:1024;if(sun.shadow.mapSize.x!==sz){sun.shadow.mapSize.set(sz,sz);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}}}
+// Fase 7: tres niveles de calidad. dyn = factor automático de resolución (baja solo si el FPS cae y sube cuando se recupera)
+const QUAL={low:{dpr:1,shadow:0,fogN:45,fogF:150,far:175},mid:{dpr:1.25,shadow:1024,fogN:70,fogF:250,far:320},high:{dpr:2,shadow:2048,fogN:70,fogF:250,far:320}};let dyn=1;
+function applyRes(){const q=QUAL[quality]||QUAL.mid,dpr=typeof devicePixelRatio==='number'?devicePixelRatio:1;renderer.setPixelRatio(Math.min(dpr,q.dpr)*dyn);renderer.setSize(innerWidth,innerHeight)}
+function applyQuality(){const q=QUAL[quality]||QUAL.mid;applyRes();sun.castShadow=q.shadow>0;if(q.shadow&&sun.shadow.mapSize.x!==q.shadow){sun.shadow.mapSize.set(q.shadow,q.shadow);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null}}scene.fog.near=q.fogN;scene.fog.far=q.fogF;if(camera.far!==q.far){camera.far=q.far;camera.updateProjectionMatrix()}}
+try{if(!localStorage.getItem('egozne-quality')&&typeof navigator!=='undefined'&&((navigator.deviceMemory&&navigator.deviceMemory<=3)||(navigator.hardwareConcurrency&&navigator.hardwareConcurrency<=4)))quality='low'}catch(e){}
+let fpsOn=false;try{fpsOn=localStorage.getItem('egozne-fps')==='1'}catch(e){}const fpsEl=$('#fps');if(fpsEl)fpsEl.classList.toggle('hidden',!fpsOn);
 player.sens=sens;player.autoRun=autoRunOn;applyQuality();renderProfile();
 const charsScr=$('#chars-screen'),gunsScr=$('#guns-screen'),setScr=$('#settings-screen');
 const layout=createLayout(hud);layout.setVibration(vibOn);
@@ -98,10 +103,10 @@ $('#btn-chars').addEventListener('click',()=>{closePanels();renderChars();charsS
 $('#chars-close').addEventListener('click',closePanels);
 $('#btn-guns').addEventListener('click',()=>{closePanels();renderGuns();gunsScr.classList.remove('hidden')});
 $('#guns-close').addEventListener('click',closePanels);
-$('#btn-settings').addEventListener('click',()=>{closePanels();$('#set-name').value=pname;$('#set-quality').value=quality;$('#set-drop').value=dropOn?'1':'0';$('#set-assist').value=assistOn?'1':'0';$('#set-auto').value=autoRunOn?'1':'0';$('#set-pick').value=pickAuto?'auto':'manual';$('#set-vib').value=vibOn?'1':'0';$('#set-sens').value=Math.round(sens*100);$('#set-sens-val').textContent=sens.toFixed(1);setScr.classList.remove('hidden')});
+$('#btn-settings').addEventListener('click',()=>{closePanels();$('#set-name').value=pname;$('#set-quality').value=quality;$('#set-fps').value=fpsOn?'1':'0';$('#set-drop').value=dropOn?'1':'0';$('#set-assist').value=assistOn?'1':'0';$('#set-auto').value=autoRunOn?'1':'0';$('#set-pick').value=pickAuto?'auto':'manual';$('#set-vib').value=vibOn?'1':'0';$('#set-sens').value=Math.round(sens*100);$('#set-sens-val').textContent=sens.toFixed(1);setScr.classList.remove('hidden')});
 $('#set-layout').addEventListener('click',()=>{closePanels();start.classList.add('hidden');hud.classList.remove('hidden');layout.edit(()=>{hud.classList.add('hidden');start.classList.remove('hidden')})});
 $('#set-sens').addEventListener('input',()=>{$('#set-sens-val').textContent=(Number($('#set-sens').value)/100).toFixed(1)});
-$('#settings-close').addEventListener('click',()=>{pname=($('#set-name').value||'').trim().toUpperCase().slice(0,12)||'JUGADOR';quality=$('#set-quality').value||'mid';sens=Math.min(2,Math.max(.5,Number($('#set-sens').value)/100||1));save('egozne-name',pname);save('egozne-quality',quality);save('egozne-sens',sens);dropOn=$('#set-drop').value!=='0';assistOn=$('#set-assist').value!=='0';autoRunOn=$('#set-auto').value!=='0';pickAuto=$('#set-pick').value!=='manual';vibOn=$('#set-vib').value!=='0';save('egozne-pick',pickAuto?'auto':'manual');save('egozne-vib',vibOn?1:0);layout.setVibration(vibOn);save('egozne-drop',dropOn?1:0);save('egozne-assist',assistOn?1:0);save('egozne-auto',autoRunOn?1:0);player.autoRun=autoRunOn;player.sens=sens;applyQuality();renderProfile();closePanels()});
+$('#settings-close').addEventListener('click',()=>{pname=($('#set-name').value||'').trim().toUpperCase().slice(0,12)||'JUGADOR';quality=$('#set-quality').value||'mid';dyn=1;fpsOn=$('#set-fps').value==='1';save('egozne-fps',fpsOn?1:0);if(fpsEl)fpsEl.classList.toggle('hidden',!fpsOn);sens=Math.min(2,Math.max(.5,Number($('#set-sens').value)/100||1));save('egozne-name',pname);save('egozne-quality',quality);save('egozne-sens',sens);dropOn=$('#set-drop').value!=='0';assistOn=$('#set-assist').value!=='0';autoRunOn=$('#set-auto').value!=='0';pickAuto=$('#set-pick').value!=='manual';vibOn=$('#set-vib').value!=='0';save('egozne-pick',pickAuto?'auto':'manual');save('egozne-vib',vibOn?1:0);layout.setVibration(vibOn);save('egozne-drop',dropOn?1:0);save('egozne-assist',assistOn?1:0);save('egozne-auto',autoRunOn?1:0);player.autoRun=autoRunOn;player.sens=sens;applyQuality();renderProfile();closePanels()});
 // Modelos 3D realistas opcionales: si subes models/zane.glb, models/lyra.glb o models/bruno.glb, sustituyen al personaje básico
 async function loadCustomModels(){if(typeof fetch==='undefined')return;try{let loader=null;for(const c of CHARACTERS){const r=await fetch('./models/'+c.id+'.glb',{method:'HEAD'}).catch(()=>null);if(!r||!r.ok)continue;if(!loader){const m=await import('three/addons/loaders/GLTFLoader.js');loader=new m.GLTFLoader()}const g=await loader.loadAsync('./models/'+c.id+'.glb');g.scene.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});player.setCustomModel(c.id,g.scene,g.animations)}}catch(e){console.warn('Modelos .glb no cargados:',e)}}
 loadCustomModels();
@@ -133,12 +138,13 @@ function shoot(){
  const spreadK=(aiming?w.aimK:1)*acc;
  const wi=player.weaponIndex;fx.muzzle(wi,w.quiet);player.muzzle.getWorldPosition(muzzlePos);world.alertNear(player.position,w.quiet?8:32);
  let hitAny=false,killed=false,headshot=false,lastVictim=null;const dealt=new Map();
+ const emList=enemyMeshes();
  for(let p=0;p<w.pellets;p++){
   ray.set(aimOrigin,aimDir);ray.near=0;ray.far=w.range;
   if(w.spread){const sp=w.spread*spreadK,d=ray.ray.direction;d.x+=(Math.random()-.5)*2*sp;d.y+=(Math.random()-.5)*2*sp;d.z+=(Math.random()-.5)*2*sp;d.normalize()}
-  const eh=ray.intersectObjects(enemyMeshes(),false)[0],sh=world.hitSolids(ray.ray.origin,ray.ray.direction,w.range);
+  const eh=ray.intersectObjects(emList,false)[0],sh=world.hitSolids(ray.ray.origin,ray.ray.direction,w.range);
   let kind=null;
-  if(eh&&(!sh||eh.distance<=sh.distance)){
+  if(eh&&eh.object.userData.owner.userData.alive&&(!sh||eh.distance<=sh.distance)){
    endPoint.copy(eh.point);kind='blood';hitAny=true;
    const owner=eh.object.userData.owner,isHead=eh.object===owner.userData.head,f=w.falloff;
    const mult=Math.max(.15,1-Math.max(0,eh.distance-f[0])/(f[1]-f[0]));
@@ -204,11 +210,11 @@ $('#fire').addEventListener('pointerdown',e=>{e.preventDefault();fireHeld=true;f
 addEventListener('keydown',e=>{if(e.code==='Space'){player.jump();syncStance()}if(e.code==='ShiftLeft'||e.code==='ShiftRight')doStance('sprint');if(e.code==='KeyC')doStance('crouch');if(e.code==='KeyZ')doStance('prone');if(e.code==='KeyR')reload();if(e.code==='KeyQ')switchWeapon();if(e.code==='KeyF'&&active&&!paused)pickReq=true;if(e.code==='KeyE')toggleAim();if(e.code==='KeyB')openLoadout();if(e.code==='Escape'&&anyPanel()){closePanels();return}if(e.code==='Escape'&&active){if(!loadout.classList.contains('hidden'))closeLoadout();else{paused=!paused;pause.classList.toggle('hidden',!paused)}}});
 const clock=new THREE.Clock(),UP=new THREE.Vector3(0,1,0),camPos=new THREE.Vector3(),lookPos=new THREE.Vector3(),eyePos=new THREE.Vector3(),farPos=new THREE.Vector3();
 // Fase 4: colisión de cámara, retroceso visual y retícula dinámica (orden de armas: rifle, escopeta, pistola, subfusil, sniper, revólver)
-const camDir=new THREE.Vector3(),RECOIL=[.22,.8,.3,.12,1,.7],BLOOM=[.3,.7,.4,.18,.8,.6];const reloadEl=$('#reload-bar'),reloadFill=$('#reload-fill'),nearArrow=$('#near-arrow'),lowEl=$('#lowhp'),mtEl=$('#match-time'),nearEl=$('#near'),nearTxt=$('#near-txt'),hsEl=$('.health-stat'),ammoEl=$('#ammo');let reloadShown=false,hudT=0;
+const camDir=new THREE.Vector3(),camRes={distance:0,point:new THREE.Vector3(),kind:null},RECOIL=[.22,.8,.3,.12,1,.7],BLOOM=[.3,.7,.4,.18,.8,.6];const reloadEl=$('#reload-bar'),reloadFill=$('#reload-fill'),nearArrow=$('#near-arrow'),lowEl=$('#lowhp'),mtEl=$('#match-time'),nearEl=$('#near'),nearTxt=$('#near-txt'),hsEl=$('.health-stat'),ammoEl=$('#ammo');let reloadShown=false,hudT=0;
 let camLen=99,camHit=false,recoil=0,bloom=0,crossGap=4,aimEase=0,hitShake=0,swapUntil=0,swapDur=.3,swapOn=false;
 // Fase 5: precisión variable. 1 = dispersión base del arma; sube al moverse, saltar y disparar seguido, baja al agacharse o acostarse
 function accuracy(){const sp=Math.hypot(player.vx||0,player.vz||0),sbv=player.sb||0,stF=1-.25*Math.min(sbv,1)-.2*Math.max(0,sbv-1);return Math.min(3,(1+Math.min(1,sp/7)*.9+(player.grounded===false?1.1:0)+bloom*1.2)*stF)}
-function loop(){requestAnimationFrame(loop);const dt=Math.min(clock.getDelta(),.04);
+function loop(){requestAnimationFrame(loop);const raw=clock.getDelta(),dt=Math.min(raw,.04);perfTick(raw);
  // Zoom suave: mezcla 0 (tercera persona) → 1 (mira telescópica). El modelo del jugador se oculta al apuntar.
  aimBlend+=((aiming?1:0)-aimBlend)*Math.min(1,dt*(aiming?Math.max(6,12-aimZoom*.8):10));if(!aiming&&aimBlend<.002)aimBlend=0;if(aiming&&aimBlend>.995)aimBlend=1;aimEase=aimBlend*aimBlend*(3-2*aimBlend);
  const fov=BASE_FOV/(1+(aimZoom-1)*aimEase);if(Math.abs(camera.fov-fov)>.01){camera.fov=fov;camera.updateProjectionMatrix()}
@@ -218,7 +224,7 @@ function loop(){requestAnimationFrame(loop);const dt=Math.min(clock.getDelta(),.
  player.relaxed=lobby||player.dropping;if(active&&!paused){gameClock+=dt;controls.update();aimMove.set(controls.move.x,controls.move.y).multiplyScalar(aiming?.45:1);{const _px=player.position.x,_pz=player.position.z;player.update(dt,aimMove);world.constrain(player.position,_px,_pz)}
   if(player.landImpact){fx.dust(player.position.x,player.position.z,player.landImpact);player.landImpact=0}if(player.runDust){fx.dust(player.position.x,player.position.z,2);player.runDust=false}syncStance();if(fireHeld&&player.weapon.auto)shoot();if(reloadUntil>0&&gameClock>=reloadUntil)completeReload();reloadTick();hudT+=dt;if(hudT>.12){hudT=0;hudTick()}world.update(dt,player,gameClock);enemyAttacks(dt);collectLoot();updateZone(dt);{const sbv=player.sb||0,back=6.6-.5*Math.min(sbv,1)-.6*Math.max(0,sbv-1);camPos.set(0,2.4+.7*player.eyeH/1.62,back).applyAxisAngle(UP,player.yaw).add(player.position)}lookPos.copy(player.position);lookPos.y+=player.chestH;
   // La cámara no atraviesa paredes: rayo desde el pecho hacia atrás; si choca se acerca, y al liberarse se aleja poco a poco
-  camDir.subVectors(camPos,lookPos);{const dist=camDir.length();camHit=false;if(dist>.01){camDir.divideScalar(dist);const h=world.hitSolids(lookPos,camDir,dist),want=h?Math.max(.25,h.distance-.3):dist;if(want<camLen){camLen=want;camHit=!!h}else{camLen=Math.min(want,camLen+(want-camLen)*Math.min(1,dt*3.5));camHit=camLen<dist-.05}camPos.copy(lookPos).addScaledVector(camDir,Math.min(camLen,dist));if(camPos.y<.4)camPos.y=.4;if(camLen<1.2)player.group.visible=false}}
+  camDir.subVectors(camPos,lookPos);{const dist=camDir.length();camHit=false;if(dist>.01){camDir.divideScalar(dist);const h=world.hitSolids(lookPos,camDir,dist,camRes),want=h?Math.max(.25,h.distance-.3):dist;if(want<camLen){camLen=want;camHit=!!h}else{camLen=Math.min(want,camLen+(want-camLen)*Math.min(1,dt*3.5));camHit=camLen<dist-.05}camPos.copy(lookPos).addScaledVector(camDir,Math.min(camLen,dist));if(camPos.y<.4)camPos.y=.4;if(camLen<1.2)player.group.visible=false}}
   recoil=Math.max(0,recoil-dt*(3+recoil*3));hitShake=Math.max(0,hitShake-dt*3.5);{const sl=swapUntil-gameClock;if(sl>0){const k=1-sl/swapDur,e=1-Math.pow(1-k,3);player.gun.scale.setScalar(.15+.85*e);swapOn=true}else if(swapOn){swapOn=false;fx.setWeaponLook(player.weaponIndex)}}bloom=Math.max(0,bloom-dt*1.6);
   if(aimBlend>0){const fx_=-Math.sin(player.yaw),fz_=-Math.cos(player.yaw);eyePos.set(player.position.x+fx_*.25,player.position.y+player.eyeH,player.position.z+fz_*.25);farPos.set(eyePos.x+fx_*30,eyePos.y,eyePos.z+fz_*30);camPos.lerp(eyePos,aimEase);lookPos.lerp(farPos,aimEase)}
   if(recoil>0||hitShake>0){lookPos.y+=recoil*(.5+.6*aimBlend);const j=recoil*.025+hitShake*.12;camPos.x+=(Math.random()-.5)*j;camPos.y+=(Math.random()-.5)*j;camPos.z+=(Math.random()-.5)*j}
@@ -236,4 +242,13 @@ function hudTick(){
   if(be&&best<45){const dx=be.position.x-player.position.x,dz=be.position.z-player.position.z,a=Math.atan2(dx*Math.cos(player.yaw)-dz*Math.sin(player.yaw),-dx*Math.sin(player.yaw)-dz*Math.cos(player.yaw));nearArrow.style.transform='rotate('+a+'rad)';nearTxt.textContent='ENEMIGO CERCA · '+Math.round(best)+' m';nearEl.classList.remove('hidden')}else nearEl.classList.add('hidden')}
 }
 function reloadTick(){if(!reloadEl)return;const rl=reloadUntil>gameClock;if(rl){const tot=(player.weapon.reloadT||1.25)*player.character.reloadMul;reloadFill.style.transform='scaleX('+Math.max(0,Math.min(1,1-(reloadUntil-gameClock)/tot)).toFixed(3)+')'}if(rl!==reloadShown){reloadShown=rl;reloadEl.classList.toggle('hidden',!rl)}}
-function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.5))}addEventListener('resize',resize);syncAim();updateHud();$('#loading').classList.add('hidden');loop();
+
+// Fase 7: medidor de rendimiento. Cada ~1.5 s promedia el tiempo de fotograma; si es lento baja la resolución, si sobra la vuelve a subir.
+let pfN=0,pfS=0,pfCool=0,pfGood=0;
+function perfTick(raw){if(!active||paused||document.hidden||raw>.25)return;pfN++;pfS+=raw;if(pfS<1.5)return;const avg=pfS/pfN;if(fpsEl&&fpsOn)fpsEl.textContent=Math.round(1/avg)+' FPS'+(dyn<1?' · '+Math.round(dyn*100)+'%':'');pfN=0;pfS=0;
+ if(pfCool>0){pfCool--;return}
+ if(avg>.028&&dyn>.6){dyn=Math.max(.6,dyn-.15);applyRes();pfCool=1;pfGood=0}
+ else if(avg<.0195&&dyn<1){if(++pfGood>=2){dyn=Math.min(1,dyn+.1);applyRes();pfCool=1;pfGood=0}}else pfGood=0}
+// Al salir de la app o cambiar de pestaña, la partida se pausa sola
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&active&&!paused){paused=true;fireHeld=false;pause.classList.remove('hidden')}});
+function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();applyRes()}addEventListener('resize',resize);syncAim();updateHud();$('#loading').classList.add('hidden');loop();
