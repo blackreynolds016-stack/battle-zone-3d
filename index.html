@@ -35,6 +35,7 @@
   <section id="settings-screen" class="screen hidden"><div class="panel"><p class="eyebrow">CONFIGURACIÓN</p>
     <label class="set-row">NOMBRE<input id="set-name" maxlength="12" autocomplete="off"></label>
     <label class="set-row">CALIDAD GRÁFICA<select id="set-quality"><option value="low">Baja (más fluido)</option><option value="mid">Media</option><option value="high">Alta</option></select></label>
+    <label class="set-row">MOSTRAR FPS<select id="set-fps"><option value="0">No</option><option value="1">Sí</option></select></label>
     <label class="set-row">SALTO EN PARACAÍDAS<select id="set-drop"><option value="1">Sí</option><option value="0">No (empezar en el suelo)</option></select></label>
     <label class="set-row">AYUDA DE PUNTERÍA<select id="set-assist"><option value="1">Activada</option><option value="0">Desactivada</option></select></label>
     <label class="set-row">CORRER AUTOMÁTICO<select id="set-auto"><option value="1">Activado</option><option value="0">Desactivado</option></select></label>
@@ -56,7 +57,7 @@
     </div>
     <canvas id="minimap" width="120" height="120" aria-label="Minimapa"></canvas>
     <div id="zone-warning" class="zone-warning hidden">⚠ FUERA DE LA ZONA SEGURA</div>
-    <div id="lowhp"></div><div id="hurt"></div><div id="dmgdir"><i></i></div><div id="hitmark"><i></i><i></i><i></i><i></i></div><div id="killfeed"></div><div id="banner"></div>
+    <div id="fps" class="hidden">-- FPS</div><div id="lowhp"></div><div id="hurt"></div><div id="dmgdir"><i></i></div><div id="hitmark"><i></i><i></i><i></i><i></i></div><div id="killfeed"></div><div id="banner"></div>
     <div id="crosshair"><i></i><i></i><i></i><i></i></div><div id="reload-bar" class="hidden"><i id="reload-fill"></i></div><div id="near" class="hidden"><i id="near-arrow">▲</i><span id="near-txt"></span></div>
     <div id="status-message">Busca equipo y sobrevive</div>
     <div class="bottom-hud"><div class="zone-info">ZONA SEGURA <b id="zone-time">01:30</b><span class="mt" id="match-time">PARTIDA 00:00</span></div><div class="weapon-info"><i class="ico sm" id="weapon-ico"></i><b id="weapon-label">RIFLE DE ASALTO</b><span id="ammo-label">30 / 120</span></div></div>
